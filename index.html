@@ -284,22 +284,6 @@
         </div><!-- /shape-selector -->
       </div><!-- /Shape card -->
 
-      <!-- ── Color Scheme (collapsible) ── -->
-      <div class="card col1 collapsible collapsed">
-        <button class="card-title" aria-expanded="false">
-          Color Scheme
-          <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-        <div class="card-body">
-          <div class="scheme-grid">
-            <button class="scheme-btn active" data-scheme="ocean"   style="background:linear-gradient(135deg,#006B6B,#0080C7)">Ocean</button>
-            <button class="scheme-btn"        data-scheme="forest"  style="background:linear-gradient(135deg,#1B5E20,#4CAF50)">Forest</button>
-            <button class="scheme-btn"        data-scheme="magenta" style="background:linear-gradient(135deg,#8B008B,#C71585)">Magenta</button>
-            <button class="scheme-btn"        data-scheme="golden"  style="background:linear-gradient(135deg,#9a6000,#FF8C00)">Golden</button>
-          </div>
-        </div>
-      </div>
-
       <!-- ── Parameters ── -->
       <div class="card col2">
         <div class="card-title">Parameters</div>
@@ -339,6 +323,23 @@
               <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
             <div class="sub-body">
+              <div class="sub-group collapsible collapsed sub-group--scheme" style="margin-bottom:8px">
+                <div class="sub-group-title">Color Scheme <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div class="sub-body">
+                  <div class="scheme-grid" style="grid-template-columns:repeat(5,1fr)">
+                    <button type="button" class="el-scheme-btn active" data-scheme="ocean"   style="background:linear-gradient(135deg,#006B6B,#0080C7)">Ocean</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="forest"  style="background:linear-gradient(135deg,#1B5E20,#4CAF50)">Forest</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="magenta" style="background:linear-gradient(135deg,#8B008B,#C71585)">Magenta</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="golden"  style="background:linear-gradient(135deg,#9a6000,#FF8C00)">Golden</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="custom"  style="background:linear-gradient(135deg,#555,#999)">Custom</button>
+                  </div>
+                  <input type="hidden" id="frac-el-0-scheme" class="el-scheme-val" value="ocean">
+                  <div class="el-scheme-custom-row" style="display:none;margin-top:6px">
+                    <label>Base color <span class="hint" style="display:inline">(other colors auto-generated)</span></label>
+                    <input type="color" id="frac-el-0-scheme-color" class="el-scheme-color" value="#006B6B">
+                  </div>
+                </div>
+              </div>
               <label for="frac-shape-0">Shape</label>
               <select id="frac-shape-0">
                 <option value="rectangle">Rectangle</option>
@@ -495,6 +496,23 @@
               <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
             <div class="sub-body">
+              <div class="sub-group collapsible collapsed sub-group--scheme" style="margin-bottom:8px">
+                <div class="sub-group-title">Color Scheme <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div class="sub-body">
+                  <div class="scheme-grid" style="grid-template-columns:repeat(5,1fr)">
+                    <button type="button" class="el-scheme-btn active" data-scheme="ocean"   style="background:linear-gradient(135deg,#006B6B,#0080C7)">Ocean</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="forest"  style="background:linear-gradient(135deg,#1B5E20,#4CAF50)">Forest</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="magenta" style="background:linear-gradient(135deg,#8B008B,#C71585)">Magenta</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="golden"  style="background:linear-gradient(135deg,#9a6000,#FF8C00)">Golden</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="custom"  style="background:linear-gradient(135deg,#555,#999)">Custom</button>
+                  </div>
+                  <input type="hidden" id="frac-el-1-scheme" class="el-scheme-val" value="ocean">
+                  <div class="el-scheme-custom-row" style="display:none;margin-top:6px">
+                    <label>Base color <span class="hint" style="display:inline">(other colors auto-generated)</span></label>
+                    <input type="color" id="frac-el-1-scheme-color" class="el-scheme-color" value="#006B6B">
+                  </div>
+                </div>
+              </div>
               <label for="frac-shape-1">Shape</label>
               <select id="frac-shape-1">
                 <option value="rectangle">Rectangle</option>
@@ -651,6 +669,23 @@
               <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
             <div class="sub-body">
+              <div class="sub-group collapsible collapsed sub-group--scheme" style="margin-bottom:8px">
+                <div class="sub-group-title">Color Scheme <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div class="sub-body">
+                  <div class="scheme-grid" style="grid-template-columns:repeat(5,1fr)">
+                    <button type="button" class="el-scheme-btn active" data-scheme="ocean"   style="background:linear-gradient(135deg,#006B6B,#0080C7)">Ocean</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="forest"  style="background:linear-gradient(135deg,#1B5E20,#4CAF50)">Forest</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="magenta" style="background:linear-gradient(135deg,#8B008B,#C71585)">Magenta</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="golden"  style="background:linear-gradient(135deg,#9a6000,#FF8C00)">Golden</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="custom"  style="background:linear-gradient(135deg,#555,#999)">Custom</button>
+                  </div>
+                  <input type="hidden" id="frac-el-2-scheme" class="el-scheme-val" value="ocean">
+                  <div class="el-scheme-custom-row" style="display:none;margin-top:6px">
+                    <label>Base color <span class="hint" style="display:inline">(other colors auto-generated)</span></label>
+                    <input type="color" id="frac-el-2-scheme-color" class="el-scheme-color" value="#006B6B">
+                  </div>
+                </div>
+              </div>
               <label for="frac-shape-2">Shape</label>
               <select id="frac-shape-2">
                 <option value="rectangle">Rectangle</option>
@@ -807,6 +842,23 @@
               <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
             <div class="sub-body">
+              <div class="sub-group collapsible collapsed sub-group--scheme" style="margin-bottom:8px">
+                <div class="sub-group-title">Color Scheme <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div class="sub-body">
+                  <div class="scheme-grid" style="grid-template-columns:repeat(5,1fr)">
+                    <button type="button" class="el-scheme-btn active" data-scheme="ocean"   style="background:linear-gradient(135deg,#006B6B,#0080C7)">Ocean</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="forest"  style="background:linear-gradient(135deg,#1B5E20,#4CAF50)">Forest</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="magenta" style="background:linear-gradient(135deg,#8B008B,#C71585)">Magenta</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="golden"  style="background:linear-gradient(135deg,#9a6000,#FF8C00)">Golden</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="custom"  style="background:linear-gradient(135deg,#555,#999)">Custom</button>
+                  </div>
+                  <input type="hidden" id="frac-el-3-scheme" class="el-scheme-val" value="ocean">
+                  <div class="el-scheme-custom-row" style="display:none;margin-top:6px">
+                    <label>Base color <span class="hint" style="display:inline">(other colors auto-generated)</span></label>
+                    <input type="color" id="frac-el-3-scheme-color" class="el-scheme-color" value="#006B6B">
+                  </div>
+                </div>
+              </div>
               <label for="frac-shape-3">Shape</label>
               <select id="frac-shape-3">
                 <option value="rectangle">Rectangle</option>
@@ -982,6 +1034,23 @@
               <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
             <div class="sub-body">
+              <div class="sub-group collapsible collapsed sub-group--scheme" style="margin-bottom:8px">
+                <div class="sub-group-title">Color Scheme <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div class="sub-body">
+                  <div class="scheme-grid" style="grid-template-columns:repeat(5,1fr)">
+                    <button type="button" class="el-scheme-btn active" data-scheme="ocean"   style="background:linear-gradient(135deg,#006B6B,#0080C7)">Ocean</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="forest"  style="background:linear-gradient(135deg,#1B5E20,#4CAF50)">Forest</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="magenta" style="background:linear-gradient(135deg,#8B008B,#C71585)">Magenta</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="golden"  style="background:linear-gradient(135deg,#9a6000,#FF8C00)">Golden</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="custom"  style="background:linear-gradient(135deg,#555,#999)">Custom</button>
+                  </div>
+                  <input type="hidden" id="geo-0-scheme" class="el-scheme-val" value="ocean">
+                  <div class="el-scheme-custom-row" style="display:none;margin-top:6px">
+                    <label>Base color <span class="hint" style="display:inline">(other colors auto-generated)</span></label>
+                    <input type="color" id="geo-0-scheme-color" class="el-scheme-color" value="#006B6B">
+                  </div>
+                </div>
+              </div>
               <label for="geo-type-0">Shape type</label>
               <select id="geo-type-0">
                 <option value="rectangle">Rectangle</option>
@@ -1131,6 +1200,23 @@
               <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
             <div class="sub-body">
+              <div class="sub-group collapsible collapsed sub-group--scheme" style="margin-bottom:8px">
+                <div class="sub-group-title">Color Scheme <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div class="sub-body">
+                  <div class="scheme-grid" style="grid-template-columns:repeat(5,1fr)">
+                    <button type="button" class="el-scheme-btn active" data-scheme="ocean"   style="background:linear-gradient(135deg,#006B6B,#0080C7)">Ocean</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="forest"  style="background:linear-gradient(135deg,#1B5E20,#4CAF50)">Forest</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="magenta" style="background:linear-gradient(135deg,#8B008B,#C71585)">Magenta</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="golden"  style="background:linear-gradient(135deg,#9a6000,#FF8C00)">Golden</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="custom"  style="background:linear-gradient(135deg,#555,#999)">Custom</button>
+                  </div>
+                  <input type="hidden" id="geo-1-scheme" class="el-scheme-val" value="ocean">
+                  <div class="el-scheme-custom-row" style="display:none;margin-top:6px">
+                    <label>Base color <span class="hint" style="display:inline">(other colors auto-generated)</span></label>
+                    <input type="color" id="geo-1-scheme-color" class="el-scheme-color" value="#006B6B">
+                  </div>
+                </div>
+              </div>
               <label for="geo-type-1">Shape type</label>
               <select id="geo-type-1">
                 <option value="rectangle">Rectangle</option><option value="square">Square</option><option value="circle">Circle</option><option value="ellipse">Ellipse</option><option value="triangle">Triangle</option><option value="parallelogram">Parallelogram</option><option value="rhombus">Rhombus</option><option value="trapezoid">Trapezoid</option><option value="pentagon">Pentagon</option><option value="hexagon">Hexagon</option><option value="octagon">Octagon</option><option value="sector">Sector / Arc</option>
@@ -1195,6 +1281,23 @@
               <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
             <div class="sub-body">
+              <div class="sub-group collapsible collapsed sub-group--scheme" style="margin-bottom:8px">
+                <div class="sub-group-title">Color Scheme <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div class="sub-body">
+                  <div class="scheme-grid" style="grid-template-columns:repeat(5,1fr)">
+                    <button type="button" class="el-scheme-btn active" data-scheme="ocean"   style="background:linear-gradient(135deg,#006B6B,#0080C7)">Ocean</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="forest"  style="background:linear-gradient(135deg,#1B5E20,#4CAF50)">Forest</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="magenta" style="background:linear-gradient(135deg,#8B008B,#C71585)">Magenta</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="golden"  style="background:linear-gradient(135deg,#9a6000,#FF8C00)">Golden</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="custom"  style="background:linear-gradient(135deg,#555,#999)">Custom</button>
+                  </div>
+                  <input type="hidden" id="geo-2-scheme" class="el-scheme-val" value="ocean">
+                  <div class="el-scheme-custom-row" style="display:none;margin-top:6px">
+                    <label>Base color <span class="hint" style="display:inline">(other colors auto-generated)</span></label>
+                    <input type="color" id="geo-2-scheme-color" class="el-scheme-color" value="#006B6B">
+                  </div>
+                </div>
+              </div>
               <label for="geo-type-2">Shape type</label>
               <select id="geo-type-2">
                 <option value="rectangle">Rectangle</option><option value="square">Square</option><option value="circle">Circle</option><option value="ellipse">Ellipse</option><option value="triangle">Triangle</option><option value="parallelogram">Parallelogram</option><option value="rhombus">Rhombus</option><option value="trapezoid">Trapezoid</option><option value="pentagon">Pentagon</option><option value="hexagon">Hexagon</option><option value="octagon">Octagon</option><option value="sector">Sector / Arc</option>
@@ -1251,6 +1354,23 @@
               <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
             <div class="sub-body">
+              <div class="sub-group collapsible collapsed sub-group--scheme" style="margin-bottom:8px">
+                <div class="sub-group-title">Color Scheme <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div class="sub-body">
+                  <div class="scheme-grid" style="grid-template-columns:repeat(5,1fr)">
+                    <button type="button" class="el-scheme-btn active" data-scheme="ocean"   style="background:linear-gradient(135deg,#006B6B,#0080C7)">Ocean</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="forest"  style="background:linear-gradient(135deg,#1B5E20,#4CAF50)">Forest</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="magenta" style="background:linear-gradient(135deg,#8B008B,#C71585)">Magenta</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="golden"  style="background:linear-gradient(135deg,#9a6000,#FF8C00)">Golden</button>
+                    <button type="button" class="el-scheme-btn"        data-scheme="custom"  style="background:linear-gradient(135deg,#555,#999)">Custom</button>
+                  </div>
+                  <input type="hidden" id="geo-3-scheme" class="el-scheme-val" value="ocean">
+                  <div class="el-scheme-custom-row" style="display:none;margin-top:6px">
+                    <label>Base color <span class="hint" style="display:inline">(other colors auto-generated)</span></label>
+                    <input type="color" id="geo-3-scheme-color" class="el-scheme-color" value="#006B6B">
+                  </div>
+                </div>
+              </div>
               <label for="geo-type-3">Shape type</label>
               <select id="geo-type-3">
                 <option value="rectangle">Rectangle</option><option value="square">Square</option><option value="circle">Circle</option><option value="ellipse">Ellipse</option><option value="triangle">Triangle</option><option value="parallelogram">Parallelogram</option><option value="rhombus">Rhombus</option><option value="trapezoid">Trapezoid</option><option value="pentagon">Pentagon</option><option value="hexagon">Hexagon</option><option value="octagon">Octagon</option><option value="sector">Sector / Arc</option>
@@ -1304,6 +1424,20 @@
 
         <!-- Angles -->
         <div class="param-section" id="params-angle">
+          <!-- Color Scheme -->
+          <div class="param-cat">Color Scheme</div>
+          <div class="scheme-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:4px">
+            <button type="button" class="el-scheme-btn active" data-scheme="ocean"   style="background:linear-gradient(135deg,#006B6B,#0080C7)">Ocean</button>
+            <button type="button" class="el-scheme-btn"        data-scheme="forest"  style="background:linear-gradient(135deg,#1B5E20,#4CAF50)">Forest</button>
+            <button type="button" class="el-scheme-btn"        data-scheme="magenta" style="background:linear-gradient(135deg,#8B008B,#C71585)">Magenta</button>
+            <button type="button" class="el-scheme-btn"        data-scheme="golden"  style="background:linear-gradient(135deg,#9a6000,#FF8C00)">Golden</button>
+            <button type="button" class="el-scheme-btn"        data-scheme="custom"  style="background:linear-gradient(135deg,#555,#999)">Custom</button>
+          </div>
+          <input type="hidden" id="ang-scheme" class="el-scheme-val" value="ocean">
+          <div class="el-scheme-custom-row" style="display:none;margin-bottom:8px">
+            <label>Base color <span class="hint" style="display:inline">(other colors auto-generated)</span></label>
+            <input type="color" id="ang-scheme-color" class="el-scheme-color" value="#006B6B">
+          </div>
           <!-- Canvas -->
           <div class="param-cat">Canvas</div>
           <div class="row2">

@@ -7,6 +7,19 @@ const SCHEMES = {
   golden:  { dark: '#664400', mid: '#FF8C00', light: '#FFDB58', pale: '#FFFDD0' },
 };
 
+function _computeCustomScheme(hex) {
+  const r=parseInt(hex.slice(1,3),16)/255, g=parseInt(hex.slice(3,5),16)/255, b=parseInt(hex.slice(5,7),16)/255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b), d=max-min;
+  let h=0, s=0, l=(max+min)/2;
+  if (d>0) {
+    s=l>0.5?d/(2-max-min):d/(max+min);
+    switch(max){case r:h=((g-b)/d+(g<b?6:0))/6;break;case g:h=((b-r)/d+2)/6;break;case b:h=((r-g)/d+4)/6;break;}
+  }
+  const hDeg=h*360;
+  function hsl(hh,ss,ll){const s2=ss/100,l2=ll/100,a=s2*Math.min(l2,1-l2);const f=n=>{const k=(n+hh/30)%12,c2=l2-a*Math.max(-1,Math.min(k-3,9-k,1));return Math.round(255*c2).toString(16).padStart(2,'0');};return '#'+f(0)+f(8)+f(4);}
+  return {dark:hsl(hDeg,70,28),mid:hsl(hDeg,78,45),light:hsl(hDeg,62,68),pale:hsl(hDeg,45,88)};
+}
+
 let currentShape  = 'numberLine';
 let currentScheme = 'ocean';
 let textOverlays  = [];

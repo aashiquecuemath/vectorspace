@@ -145,6 +145,25 @@ function _nlStepStr(step) {
   return step % 1 === 0 ? String(Math.round(step)) : String(parseFloat(step.toFixed(6)));
 }
 
+/* ── Custom label override parser ───────────────────────────────────── */
+
+/** Parses "value:label" pairs (comma or newline separated) into a Map<number,string>.
+ *  Supports $math$ in label text; colons inside math are not treated as separators. */
+function _parseCustomLabels(raw) {
+  const map = new Map();
+  if (!raw.trim()) return map;
+  // Split on newline OR on comma that precedes a number (handles "0:Home, 10:10%")
+  raw.split(/\n|,(?=\s*-?\d)/).forEach(entry => {
+    entry = entry.trim();
+    const colon = entry.indexOf(':');
+    if (colon < 1) return;
+    const v = parseFloat(entry.slice(0, colon).trim());
+    const txt = entry.slice(colon + 1).trim();
+    if (!isNaN(v) && txt) map.set(v, txt);
+  });
+  return map;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    _genNLLine(i) — per-line SVG generator
    i=0 is the primary line; i>0 are extra lines.
@@ -180,6 +199,7 @@ function _genNLLine(i) {
   const intLblSz     = Math.max(8,  num(S('nl-int-lbl-size'))   || 14);
   const intLblColor  = val(S('nl-int-lbl-color')) || '#111111';
   const intLblBold   = chk(S('nl-int-lbl-bold'));
+  const majorLblOverrides = _parseCustomLabels(val(S('nl-major-lbl-overrides')));
 
   /* ── Tick heights & widths, arrowhead size ── */
   const majorTickH = Math.max(1,   num(S('nl-major-tick-h')) || 10);
@@ -187,6 +207,13 @@ function _genNLLine(i) {
   const majorTickW = Math.max(0.5, num(S('nl-major-tick-w')) || 2);
   const subTickW   = Math.max(0.5, num(S('nl-sub-tick-w'))   || 1.5);
   const arrowSize  = Math.max(1,   num(S('nl-arrow-size'))   || 5);
+
+  /* ── Major tick placement ── */
+  const majorTickInterval = Math.max(1e-6, num(S('nl-major-tick-interval')) || 1);
+  const majorTickSpecRaw  = val(S('nl-major-tick-specific')).trim();
+  const majorTickSpec     = majorTickSpecRaw
+    ? majorTickSpecRaw.split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v))
+    : null;
 
   /* ── Subdivisions ── */
   const subs          = Math.max(1, int(S('nl-subs')) || 1);
@@ -198,6 +225,7 @@ function _genNLLine(i) {
     : null;
   const subLblSz      = Math.max(7, num(S('nl-sub-lbl-size'))  || 11);
   const subLblColor   = val(S('nl-sub-lbl-color')) || '#555555';
+  const subLblOverrides = _parseCustomLabels(val(S('nl-sub-lbl-overrides')));
 
   /* ── Point markers ── */
   const points = [];
@@ -364,20 +392,42 @@ function _genNLLine(i) {
   /* ── Main axis line ── */
   s += `\n<line x1="${leftPad + PAD}" y1="${LINE_Y}" x2="${svgW - rightPad - PAD}" y2="${LINE_Y}" stroke="${lineColor}" stroke-width="${lineWidth}" marker-start="url(#${lcId}r)" marker-end="url(#${lcId}f)"/>`;
 
-  /* ── Major ticks + integer labels ── */
+  /* ── Compute major tick positions ── */
+  let majorTicks;
+  if (majorTickSpec) {
+    majorTicks = majorTickSpec.filter(v => v >= start - 1e-9 && v <= end + 1e-9);
+  } else {
+    majorTicks = [];
+    const firstTick = parseFloat((Math.ceil(start / majorTickInterval) * majorTickInterval).toFixed(10));
+    for (let v = firstTick; v <= end + 1e-9; v = parseFloat((v + majorTickInterval).toFixed(10))) {
+      majorTicks.push(v);
+    }
+  }
+
+  /* ── Major ticks + labels ── */
   const intFW = intLblBold ? 'bold' : 'normal';
-  for (let n = Math.ceil(start); n <= Math.floor(end); n++) {
-    const x = fmt(tx(n));
+  majorTicks.forEach((n, idx) => {
+    const xNum = tx(n);
+    const x    = fmt(xNum);
     s += `\n<line x1="${x}" y1="${fmt(LINE_Y - majorTickH)}" x2="${x}" y2="${fmt(LINE_Y + majorTickH)}" stroke="${lineColor}" stroke-width="${majorTickW}"/>`;
     let show = false;
     if (showIntLbl) {
       if (lblSpecific) show = lblSpecific.some(v => Math.abs(v - n) < 1e-9);
-      else show = ((n - Math.ceil(start)) % lblInterval === 0);
+      else show = (idx % lblInterval === 0);
     }
+    // Override check: if a custom label exists for this value, always show it
+    const overrideEntry = [...majorLblOverrides.entries()].find(([v]) => Math.abs(v - n) < 1e-9);
+    if (overrideEntry) show = true;
     if (show) {
-      s += `\n<text x="${x}" y="${fmt(LINE_Y + majorTickH + 4 + intLblSz)}" font-family="Arial,sans-serif" font-size="${intLblSz}" font-weight="${intFW}" fill="${intLblColor}" text-anchor="middle">${n}</text>`;
+      const baselineY = LINE_Y + majorTickH + 4 + intLblSz;
+      if (overrideEntry) {
+        s += '\n' + _renderLabel(overrideEntry[1], xNum, baselineY, 'middle', intLblSz, 'Arial, sans-serif', intLblBold, false, intLblColor);
+      } else {
+        const lbl = n % 1 === 0 ? Math.round(n) : parseFloat(n.toFixed(6));
+        s += `\n<text x="${x}" y="${fmt(baselineY)}" font-family="Arial,sans-serif" font-size="${intLblSz}" font-weight="${intFW}" fill="${intLblColor}" text-anchor="middle">${lbl}</text>`;
+      }
     }
-  }
+  });
 
   /* ── Subdivision ticks + labels ── */
   if (subs > 1) {
@@ -394,9 +444,17 @@ function _genNLLine(i) {
           if (subLblSpec) showS = subLblSpec.some(v => Math.abs(v - sv) < 1e-9);
           else showS = (subIdx % subLblInterv === 0);
         }
+        const subOverride = [...subLblOverrides.entries()].find(([v]) => Math.abs(v - sv) < 1e-9);
+        if (subOverride) showS = true;
         if (showS) {
-          const svLbl = sv % 1 === 0 ? Math.round(sv) : parseFloat(sv.toFixed(4));
-          s += `\n<text x="${x}" y="${fmt(LINE_Y + subTickH + 3 + subLblSz)}" font-family="Arial,sans-serif" font-size="${subLblSz}" fill="${subLblColor}" text-anchor="middle">${svLbl}</text>`;
+          const sxNum = tx(sv);
+          const baselineY = LINE_Y + subTickH + 3 + subLblSz;
+          if (subOverride) {
+            s += '\n' + _renderLabel(subOverride[1], sxNum, baselineY, 'middle', subLblSz, 'Arial, sans-serif', false, false, subLblColor);
+          } else {
+            const svLbl = sv % 1 === 0 ? Math.round(sv) : parseFloat(sv.toFixed(4));
+            s += `\n<text x="${x}" y="${fmt(baselineY)}" font-family="Arial,sans-serif" font-size="${subLblSz}" fill="${subLblColor}" text-anchor="middle">${svLbl}</text>`;
+          }
         }
       }
     }
@@ -538,7 +596,7 @@ function _nlLineSectionHTML(i) {
   const S  = s => `${s}-${i}`;
   const dv = (lbl, id, inp) => `<div><label for="${id}">${lbl}</label>${inp}</div>`;
 
-  /* Line Style */
+  /* Line & Range */
   const lineStyleHTML = `
     <div class="row2">
       ${dv('Start', S('nl-start'), `<input type="number" id="${S('nl-start')}" value="0" step="1">`)}
@@ -546,45 +604,58 @@ function _nlLineSectionHTML(i) {
     </div>
     <label for="${S('nl-length')}">Total length (px)</label>
     <input type="number" id="${S('nl-length')}" value="700" min="200" max="1400" step="50">
-    <div class="row2" style="margin-top:6px">
+    <div class="row3" style="margin-top:6px">
       ${dv('Line color', S('nl-color'), `<input type="color" id="${S('nl-color')}" value="#000000">`)}
       ${dv('Thickness (px)', S('nl-line-width'), `<input type="number" id="${S('nl-line-width')}" value="3" min="0.5" max="10" step="0.5">`)}
-    </div>
-    <div class="row2" style="margin-top:6px">
-      ${dv('Major tick height', S('nl-major-tick-h'), `<input type="number" id="${S('nl-major-tick-h')}" value="10" min="1" max="40" step="1">`)}
-      ${dv('Sub tick height', S('nl-sub-tick-h'), `<input type="number" id="${S('nl-sub-tick-h')}" value="6" min="1" max="30" step="1">`)}
-    </div>
-    <div class="row3" style="margin-top:6px">
-      ${dv('Major tick width', S('nl-major-tick-w'), `<input type="number" id="${S('nl-major-tick-w')}" value="2" min="0.5" max="8" step="0.5">`)}
-      ${dv('Sub tick width', S('nl-sub-tick-w'), `<input type="number" id="${S('nl-sub-tick-w')}" value="1.5" min="0.5" max="6" step="0.5">`)}
       ${dv('Arrow size', S('nl-arrow-size'), `<input type="number" id="${S('nl-arrow-size')}" value="5" min="1" max="12" step="0.5">`)}
     </div>`;
 
-  /* Integer Labels */
+  /* Major Ticks */
   const intLblHTML = `
-    <div class="check-row"><input type="checkbox" id="${S('nl-labels')}" checked><label for="${S('nl-labels')}">Show integer labels</label></div>
-    <label for="${S('nl-lbl-interval')}" style="margin-top:6px">Show every N integers</label>
-    <input type="number" id="${S('nl-lbl-interval')}" value="1" min="1" max="20" step="1">
-    <label for="${S('nl-lbl-specific')}">Specific values <span class="hint" style="display:inline">(comma-sep, e.g. 0,5,10)</span></label>
-    <input type="text" id="${S('nl-lbl-specific')}" placeholder="blank = use interval above">
-    <div class="row3" style="margin-top:7px">
-      ${dv('Font size', S('nl-int-lbl-size'), `<input type="number" id="${S('nl-int-lbl-size')}" value="14" min="8" max="36">`)}
-      ${dv('Color', S('nl-int-lbl-color'), `<input type="color" id="${S('nl-int-lbl-color')}" value="#111111">`)}
-      <div><div class="check-row" style="margin-top:20px"><input type="checkbox" id="${S('nl-int-lbl-bold')}" checked><label for="${S('nl-int-lbl-bold')}">Bold</label></div></div>
+    <div class="row2">
+      ${dv('Tick every (units)', S('nl-major-tick-interval'), `<input type="number" id="${S('nl-major-tick-interval')}" value="1" min="0.001" step="1" title="Draw a major tick every N units (e.g. 10 for a 0–100 range)">`)}
+    </div>
+    <label for="${S('nl-major-tick-specific')}" style="margin-top:4px">Specific tick positions <span class="hint" style="display:inline">(comma-sep — overrides interval, e.g. 0,25,50,75,100)</span></label>
+    <input type="text" id="${S('nl-major-tick-specific')}" placeholder="blank = use interval above">
+    <div class="row2" style="margin-top:6px">
+      ${dv('Tick height (px)', S('nl-major-tick-h'), `<input type="number" id="${S('nl-major-tick-h')}" value="10" min="1" max="40" step="1">`)}
+      ${dv('Tick width (px)', S('nl-major-tick-w'), `<input type="number" id="${S('nl-major-tick-w')}" value="2" min="0.5" max="8" step="0.5">`)}
+    </div>
+    <div style="border-top:1px solid #dde3ec;margin-top:10px;padding-top:8px">
+      <div class="check-row"><input type="checkbox" id="${S('nl-labels')}" checked><label for="${S('nl-labels')}">Show tick labels</label></div>
+      <label for="${S('nl-lbl-interval')}" style="margin-top:6px">Label every Nth tick <span class="hint" style="display:inline">(1 = all ticks, 2 = every other, …)</span></label>
+      <input type="number" id="${S('nl-lbl-interval')}" value="1" min="1" max="100" step="1">
+      <label for="${S('nl-lbl-specific')}">Specific label values <span class="hint" style="display:inline">(comma-sep, e.g. 0,50,100 — overrides above)</span></label>
+      <input type="text" id="${S('nl-lbl-specific')}" placeholder="blank = use interval above">
+      <label for="${S('nl-major-lbl-overrides')}" style="margin-top:6px">Alternate label text <span class="hint" style="display:inline">(value:label, one per line or comma-separated)</span></label>
+      <textarea id="${S('nl-major-lbl-overrides')}" rows="2" placeholder="0:Start&#10;50:50%&#10;100:End  or  0:Home, 10:10%"></textarea>
+      <div class="row3" style="margin-top:7px">
+        ${dv('Font size', S('nl-int-lbl-size'), `<input type="number" id="${S('nl-int-lbl-size')}" value="14" min="8" max="36">`)}
+        ${dv('Color', S('nl-int-lbl-color'), `<input type="color" id="${S('nl-int-lbl-color')}" value="#111111">`)}
+        <div><div class="check-row" style="margin-top:20px"><input type="checkbox" id="${S('nl-int-lbl-bold')}" checked><label for="${S('nl-int-lbl-bold')}">Bold</label></div></div>
+      </div>
     </div>`;
 
   /* Subdivisions */
   const subsHTML = `
     <label for="${S('nl-subs')}">Subdivisions per unit <span class="hint" style="display:inline">(1 = none)</span></label>
     <input type="number" id="${S('nl-subs')}" value="1" min="1" max="20">
-    <div class="check-row" style="margin-top:7px"><input type="checkbox" id="${S('nl-sub-labels')}"><label for="${S('nl-sub-labels')}">Show subdivision labels</label></div>
+    <div class="row2" style="margin-top:6px">
+      ${dv('Tick height (px)', S('nl-sub-tick-h'), `<input type="number" id="${S('nl-sub-tick-h')}" value="6" min="1" max="30" step="1">`)}
+      ${dv('Tick width (px)', S('nl-sub-tick-w'), `<input type="number" id="${S('nl-sub-tick-w')}" value="1.5" min="0.5" max="6" step="0.5">`)}
+    </div>
+    <div style="border-top:1px solid #dde3ec;margin-top:10px;padding-top:8px">
+    <div class="check-row"><input type="checkbox" id="${S('nl-sub-labels')}"><label for="${S('nl-sub-labels')}">Show subdivision labels</label></div>
     <label for="${S('nl-sub-lbl-interval')}" style="margin-top:6px">Show every Nth subdivision</label>
     <input type="number" id="${S('nl-sub-lbl-interval')}" value="1" min="1" max="20">
     <label for="${S('nl-sub-lbl-specific')}">Specific values <span class="hint" style="display:inline">(e.g. 0.5,1.5,2.5)</span></label>
     <input type="text" id="${S('nl-sub-lbl-specific')}" placeholder="blank = use interval above">
+    <label for="${S('nl-sub-lbl-overrides')}" style="margin-top:6px">Alternate label text <span class="hint" style="display:inline">(value:label, one per line or comma-separated)</span></label>
+    <textarea id="${S('nl-sub-lbl-overrides')}" rows="2" placeholder="0.5:½&#10;1.5:1½  or  0.5:$\frac{1}{2}$"></textarea>
     <div class="row2" style="margin-top:7px">
       ${dv('Font size', S('nl-sub-lbl-size'), `<input type="number" id="${S('nl-sub-lbl-size')}" value="11" min="7" max="24">`)}
       ${dv('Color', S('nl-sub-lbl-color'), `<input type="color" id="${S('nl-sub-lbl-color')}" value="#555555">`)}
+    </div>
     </div>`;
 
   /* Point Markers */
@@ -663,8 +734,8 @@ function _nlLineSectionHTML(i) {
 
   const lineNum = i + 1;
   const innerSections = [
-    _nlSubGroup('sub-group--nl-line',    'Line Style',       lineStyleHTML),
-    _nlSubGroup('sub-group--nl-labels',  'Integer Labels',   intLblHTML),
+    _nlSubGroup('sub-group--nl-line',    'Line & Range',     lineStyleHTML),
+    _nlSubGroup('sub-group--nl-labels',  'Major Ticks',      intLblHTML),
     _nlSubGroup('sub-group--nl-subs',    'Subdivisions',     subsHTML),
     _nlSubGroup('sub-group--nl-points',  'Point Markers',    pointsHTML),
     _nlSubGroup('sub-group--nl-jumps',   'Jump Arrows',      jumpsHTML),

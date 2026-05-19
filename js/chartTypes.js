@@ -887,7 +887,7 @@ function generateDotPlot() {
     const tkBaselineY = baseY + (hasMathLabels ? tkSize * 2.2 + 3 : tkSize + 3);
     tickVals.forEach((v, i) => {
       const autoLbl = Number.isInteger(v) ? String(v) : String(parseFloat(v.toFixed(4)));
-      const raw = labelTicks ? labelTicks[i].raw
+      const raw = (labelTicks && labelTicks.length) ? labelTicks[i].raw
                 : (customLabels && customLabels[i] != null ? customLabels[i] : autoLbl);
       const lbl = raw.replace(/\$\$([^$]+)\$\$/g, (_, inner) => {
         const frac = inner.trim().replace(/^(-?\d+)\s*\/\s*(\d+)$/, '\\frac{$1}{$2}');

@@ -3,15 +3,20 @@
 /* ─── Number Line ─── moved to numberLine.js (generateNumberLine, _genNLLine) ─ */
 
 /* ─── Fraction (unified: rectangle, circle, grid, triangle, hexagon, pentagon, parallelogram) ─── */
+function _getSchemeForEl(schemeId, colorId) {
+  const name = val(schemeId) || 'ocean';
+  if (name === 'custom') return _computeCustomScheme(val(colorId) || '#006B6B');
+  return SCHEMES[name] || SCHEMES.ocean;
+}
+
 function generateFraction() {
-  const c      = SCHEMES[currentScheme];
   const count  = Math.max(1, Math.min(4, int('frac-count') || 1));
   const layout = val('frac-layout') || 'row';
   const gap    = Math.max(0, num('frac-gap') || 20);
 
   const elems = [];
   for (let ei = 0; ei < count; ei++)
-    elems.push(_genFracEl(ei, c));
+    elems.push(_genFracEl(ei));
 
   if (count === 1) return elems[0].svgStr;
 
@@ -45,7 +50,8 @@ function generateFraction() {
   }
 }
 
-function _genFracEl(elIdx, c) {
+function _genFracEl(elIdx) {
+  const c = _getSchemeForEl(`frac-el-${elIdx}-scheme`, `frac-el-${elIdx}-scheme-color`);
   const E = s => `${s}-${elIdx}`;
   const shape    = val(E('frac-shape'))   || 'rectangle';
   let den        = Math.max(1, Math.min(24, int(E('frac-den'))));
@@ -717,7 +723,7 @@ function _txtAttr(st = {}) {
 }
 
 function _gst(n) {
-  const c = SCHEMES[currentScheme];
+  const c = _getSchemeForEl(`geo-${n}-scheme`, `geo-${n}-scheme-color`);
   return {
     fill:    val(`geo-fill-color-${n}`)   || c.pale,
     stroke:  val(`geo-stroke-color-${n}`) || c.dark,

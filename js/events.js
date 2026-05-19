@@ -73,6 +73,21 @@ function _activateTab(tab) {
   render();
 }
 
+function _applySchemeColors(schemeName, customColor, hiddenId) {
+  const c = schemeName === 'custom' ? _computeCustomScheme(customColor || '#006B6B') : (SCHEMES[schemeName] || SCHEMES.ocean);
+  if (!hiddenId) return;
+  if (hiddenId.startsWith('geo-')) {
+    const n = hiddenId.replace('geo-', '').replace('-scheme', '');
+    const fi = document.getElementById(`geo-fill-color-${n}`);
+    const si = document.getElementById(`geo-stroke-color-${n}`);
+    if (fi) fi.value = c.pale;
+    if (si) si.value = c.dark;
+  } else if (hiddenId === 'ang-scheme') {
+    const lc = document.getElementById('ang-lbl-color');
+    if (lc) lc.value = c.dark;
+  }
+}
+
 function wireAll() {
 
   /* ── Collapsible cards ── */
@@ -114,14 +129,30 @@ function wireAll() {
     });
   });
 
-  /* ── Color scheme ── */
-  document.querySelectorAll('.scheme-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.scheme-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentScheme = btn.dataset.scheme;
-      render();
-    });
+  /* ── Per-element color scheme buttons (delegated) ── */
+  document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.el-scheme-btn');
+    if (!btn) return;
+    const body = btn.closest('.sub-body') || btn.closest('.param-section');
+    if (!body) return;
+    body.querySelectorAll('.el-scheme-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const scheme = btn.dataset.scheme;
+    const hidden = body.querySelector('.el-scheme-val');
+    const customRow = body.querySelector('.el-scheme-custom-row');
+    if (hidden) hidden.value = scheme;
+    if (customRow) customRow.style.display = scheme === 'custom' ? '' : 'none';
+    if (scheme !== 'custom' && hidden) _applySchemeColors(scheme, null, hidden.id);
+    if (typeof render === 'function') render();
+  });
+  document.addEventListener('input', function(e) {
+    if (!e.target.classList.contains('el-scheme-color')) return;
+    const body = e.target.closest('.sub-body') || e.target.closest('.param-section');
+    const hidden = body?.querySelector('.el-scheme-val');
+    if (hidden?.value === 'custom') {
+      _applySchemeColors('custom', e.target.value, hidden.id);
+      if (typeof render === 'function') render();
+    }
   });
 
   /* ── Canvas sliders ── */
