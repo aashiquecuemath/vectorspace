@@ -432,11 +432,23 @@ function _genNLLine(i) {
   /* ── Subdivision ticks + labels ── */
   if (subs > 1) {
     let subIdx = 0;
-    for (let n = Math.floor(start); n < Math.ceil(end); n++) {
+    // Iterate over the same intervals used for major ticks so that subdivisions
+    // always divide the major-tick spacing, not hard-coded unit (1) intervals.
+    const subIntervals = majorTickSpec
+      ? majorTicks.slice(0, -1).map((v, i) => [v, majorTicks[i + 1]])
+      : (() => {
+          const pairs = [];
+          const sb = parseFloat((Math.floor(start / majorTickInterval) * majorTickInterval).toFixed(10));
+          for (let b = sb; b < end - 1e-9; b = parseFloat((b + majorTickInterval).toFixed(10)))
+            pairs.push([b, parseFloat((b + majorTickInterval).toFixed(10))]);
+          return pairs;
+        })();
+    for (const [base, next] of subIntervals) {
+      const gap = next - base;
       for (let k = 1; k < subs; k++) {
         subIdx++;
-        const sv = parseFloat((n + k / subs).toFixed(10));
-        if (sv <= start || sv >= end) continue;
+        const sv = parseFloat((base + k * gap / subs).toFixed(10));
+        if (sv <= start + 1e-9 || sv >= end - 1e-9) continue;
         const x = fmt(tx(sv));
         s += `\n<line x1="${x}" y1="${fmt(LINE_Y - subTickH)}" x2="${x}" y2="${fmt(LINE_Y + subTickH)}" stroke="${lineColor}" stroke-width="${subTickW}"/>`;
         let showS = false;
@@ -613,7 +625,7 @@ function _nlLineSectionHTML(i) {
   /* Major Ticks */
   const intLblHTML = `
     <div class="row2">
-      ${dv('Tick every (units)', S('nl-major-tick-interval'), `<input type="number" id="${S('nl-major-tick-interval')}" value="1" min="0.001" step="1" title="Draw a major tick every N units (e.g. 10 for a 0–100 range)">`)}
+      ${dv('Tick every (units)', S('nl-major-tick-interval'), `<input type="number" id="${S('nl-major-tick-interval')}" value="1" min="0.001" step="0.5" title="Draw a major tick every N units — can be fractional, e.g. 0.5 or 2.5">`)}
     </div>
     <label for="${S('nl-major-tick-specific')}" style="margin-top:4px">Specific tick positions <span class="hint" style="display:inline">(comma-sep — overrides interval, e.g. 0,25,50,75,100)</span></label>
     <input type="text" id="${S('nl-major-tick-specific')}" placeholder="blank = use interval above">
@@ -638,7 +650,7 @@ function _nlLineSectionHTML(i) {
 
   /* Subdivisions */
   const subsHTML = `
-    <label for="${S('nl-subs')}">Subdivisions per unit <span class="hint" style="display:inline">(1 = none)</span></label>
+    <label for="${S('nl-subs')}">Subdivisions per major interval <span class="hint" style="display:inline">(1 = none)</span></label>
     <input type="number" id="${S('nl-subs')}" value="1" min="1" max="20">
     <div class="row2" style="margin-top:6px">
       ${dv('Tick height (px)', S('nl-sub-tick-h'), `<input type="number" id="${S('nl-sub-tick-h')}" value="6" min="1" max="30" step="1">`)}
