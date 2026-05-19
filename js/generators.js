@@ -1295,6 +1295,7 @@ function generateShape() {
     svgCharacter:    generateCharacter,
     svgPatterns:     generatePatterns,
     svgTable:        generateSVGTable,
+    geometry3d:      generateGeometry3D,
   };
   return (map[currentShape] || (() => ''))();
 }
