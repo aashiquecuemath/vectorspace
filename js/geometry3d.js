@@ -121,15 +121,29 @@ function _dim(p1, p2, norm, label, o, proj, track) {
   marker-start="url(#${o.mid})" marker-end="url(#${o.mid})"/>\n`;
   }
   if (label) {
-    const t = lPos === 'start' ? 0.15 : lPos === 'end' ? 0.85 : 0.5;
-    const lx = ax1 + t*(ax2-ax1) + dx*lOff;
-    const ly = ay1 + t*(ay2-ay1) + dy*lOff;
+    const mx = (ax1+ax2)/2, my = (ay1+ay2)/2;
+    let lx, ly;
+    if (lPos === 'left') {
+      // Screen-space left of midpoint + small perpendicular clearance
+      lx = mx - lOff;
+      ly = my + dy * (o.fontSize * 0.5 + 2);
+    } else if (lPos === 'right') {
+      // Screen-space right of midpoint + small perpendicular clearance
+      lx = mx + lOff;
+      ly = my + dy * (o.fontSize * 0.5 + 2);
+    } else {
+      // Center: perpendicular offset from midpoint
+      lx = mx + dx * lOff;
+      ly = my + dy * lOff;
+    }
     const labelColor = o.labelColor || o.arrowColor;
     const fw = o.fontBold   ? 'bold'   : 'normal';
     const fi = o.fontItalic ? 'italic' : 'normal';
+    const rot = o.labelRot || 0;
+    const xfm = rot ? ` transform="rotate(${fmt(rot)},${fmt(lx)},${fmt(ly)})"` : '';
     s += `<text x="${fmt(lx)}" y="${fmt(ly)}" text-anchor="middle" dominant-baseline="central"
   font-family="${o.fontFamily}" font-size="${o.fontSize}" font-weight="${fw}" font-style="${fi}"
-  fill="${labelColor}">${escXml(label)}</text>\n`;
+  fill="${labelColor}"${xfm}>${escXml(label)}</text>\n`;
     if (track) {
       const tw = label.length * o.fontSize * 0.35 + 6;
       const th = o.fontSize * 0.65;
@@ -400,7 +414,7 @@ const _G3D_DIM_META = {
              { key:'d', label:'Depth',  ph:'d' }],
   pyramid:  [{ key:'b', label:'Base',   ph:'a' },
              { key:'h', label:'Height', ph:'h' }],
-  hexprism: [{ key:'r', label:'Radius', ph:'r' },
+  hexprism: [{ key:'r', label:'Side',   ph:'a' },
              { key:'h', label:'Height', ph:'h' }],
 };
 
@@ -419,7 +433,7 @@ const _G3D_PARAM_META = {
              { id:'g3d-d', lbl:'Depth',  v:2,   min:0.5, max:20, step:0.5 }],
   pyramid:  [{ id:'g3d-b', lbl:'Base',   v:2,   min:0.5, max:20, step:0.5 },
              { id:'g3d-h', lbl:'Height', v:3,   min:0.5, max:20, step:0.5 }],
-  hexprism: [{ id:'g3d-r', lbl:'Radius', v:1,   min:0.1, max:10, step:0.1 },
+  hexprism: [{ id:'g3d-r', lbl:'Side',   v:1,   min:0.1, max:10, step:0.1 },
              { id:'g3d-h', lbl:'Height', v:2,   min:0.5, max:20, step:0.5 }],
 };
 
@@ -531,6 +545,7 @@ function generateGeometry3D() {
     const dFf       = val(`g3d-dim-${shape}-${dm.key}-ff`)   || 'Arial,sans-serif';
     const dBold     = chk(`g3d-dim-${shape}-${dm.key}-bold`);
     const dItal     = chk(`g3d-dim-${shape}-${dm.key}-ital`);
+    const dLblRot   = num(`g3d-dim-${shape}-${dm.key}-lbl-rot`) || 0;
     const dTicks    = chk(`g3d-dim-${shape}-${dm.key}-ticks`);
     const dTickW    = Math.max(0.3, num(`g3d-dim-${shape}-${dm.key}-tick-w`) || 1);
     const dMid      = 'g3d_arr_' + dColor.replace('#','');
@@ -539,7 +554,7 @@ function generateGeometry3D() {
       arrowColor: dColor, labelColor: dLblColor,
       arrowW: dAw, fontSize: dFs, fontFamily: dFf,
       fontBold: dBold, fontItalic: dItal,
-      offset: dOff, labelOffset: dLblOff, labelPos: dLblPos,
+      offset: dOff, labelOffset: dLblOff, labelPos: dLblPos, labelRot: dLblRot,
       showTicks: dTicks, tickW: dTickW, mid: dMid,
     };
     annParts.push(_dim(dd.p1, dd.p2, dd.norm, lbl, dOpts, proj, _track));
@@ -697,39 +712,43 @@ function _g3dFillDimPanel(shape) {
     <label for="${k}" class="g3d-dim-section-label">${dm.label}</label>
   </div>
   <div class="g3d-dim-section-body">
+    <div class="g3d-dim-sub-head">Arrow</div>
     <div class="row2">
-      <div><label>Label text</label><input type="text" id="${k}-lbl" class="g3d-lbl-inp" placeholder="${dm.ph}" maxlength="16"></div>
-      <div style="display:flex;gap:6px">
-        <div><label>Arrow</label><input type="color" id="${k}-color" value="#cc3300" title="Arrow color"></div>
-        <div><label>Label</label><input type="color" id="${k}-lbl-color" value="#cc3300" title="Label text color"></div>
-      </div>
+      <div><label>Color</label><input type="color" id="${k}-color" value="#cc3300"></div>
+      <div><label>Offset (px)</label><input type="number" id="${k}-off" value="28" min="4" max="120" step="2"></div>
     </div>
     <div class="row3" style="margin-top:4px">
-      <div><label>Arrow offset</label><input type="number" id="${k}-off"  value="28" min="4" max="120" step="2"></div>
-      <div><label>Label offset</label><input type="number" id="${k}-lbl-off" value="12" min="0" max="60" step="1"></div>
-      <div><label>Label pos</label>
-        <select id="${k}-lbl-pos">
-          <option value="center">Middle</option>
-          <option value="start">Left</option>
-          <option value="end">Right</option>
-        </select>
-      </div>
-    </div>
-    <div class="row3" style="margin-top:4px">
-      <div><label>Font size</label><input type="number" id="${k}-fs"  value="14" min="6" max="40"  step="1"></div>
-      <div><label>Arrow width</label><input type="number" id="${k}-aw" value="1.5" min="0.5" max="6" step="0.5"></div>
-      <div><label>Head size</label><input type="number" id="${k}-as"  value="5" min="2" max="16" step="0.5"></div>
+      <div><label>Width</label><input type="number" id="${k}-aw" value="1.5" min="0.5" max="6" step="0.5"></div>
+      <div><label>Head size</label><input type="number" id="${k}-as" value="5" min="2" max="16" step="0.5"></div>
     </div>
     <div class="row2" style="margin-top:4px">
-      <div><label>Font</label><select id="${k}-ff">${fontOptions}</select></div>
-      <div style="display:flex;gap:10px;align-items:flex-end;margin-top:18px">
-        <div class="check-row"><input type="checkbox" id="${k}-bold"><label for="${k}-bold">Bold</label></div>
-        <div class="check-row"><input type="checkbox" id="${k}-ital" checked><label for="${k}-ital">Italic</label></div>
-      </div>
-    </div>
-    <div class="row2" style="margin-top:5px">
       <div class="check-row" style="margin-top:18px"><input type="checkbox" id="${k}-ticks" checked><label for="${k}-ticks">Extension lines</label></div>
       <div><label>Line thickness</label><input type="number" id="${k}-tick-w" value="1" min="0.3" max="6" step="0.2"></div>
+    </div>
+
+    <div class="g3d-dim-sub-head" style="margin-top:8px">Label</div>
+    <div class="row2">
+      <div><label>Text</label><input type="text" id="${k}-lbl" class="g3d-lbl-inp" placeholder="${dm.ph}" maxlength="16"></div>
+      <div><label>Color</label><input type="color" id="${k}-lbl-color" value="#cc3300"></div>
+    </div>
+    <div class="row3" style="margin-top:4px">
+      <div><label>Offset (px)</label><input type="number" id="${k}-lbl-off" value="12" min="0" max="80" step="1"></div>
+      <div><label>Position</label>
+        <select id="${k}-lbl-pos">
+          <option value="center">Center</option>
+          <option value="left">Left</option>
+          <option value="right">Right</option>
+        </select>
+      </div>
+      <div><label>Rotation°</label><input type="number" id="${k}-lbl-rot" value="0" min="-180" max="180" step="5"></div>
+    </div>
+    <div class="row2" style="margin-top:4px">
+      <div><label>Font size</label><input type="number" id="${k}-fs" value="14" min="6" max="40" step="1"></div>
+      <div><label>Font</label><select id="${k}-ff">${fontOptions}</select></div>
+    </div>
+    <div style="display:flex;gap:14px;margin-top:5px;align-items:center">
+      <div class="check-row"><input type="checkbox" id="${k}-bold"><label for="${k}-bold">Bold</label></div>
+      <div class="check-row"><input type="checkbox" id="${k}-ital" checked><label for="${k}-ital">Italic</label></div>
     </div>
   </div>
 </div>`;

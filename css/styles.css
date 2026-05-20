@@ -1366,6 +1366,12 @@ input[type=hidden].pt-hidden-val { display:none !important; }
 .g3d-dim-section-body {
   padding: 8px;
 }
+.g3d-dim-sub-head {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--muted);
+  padding: 2px 0 4px; border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+}
 
 /* Color scheme swatches */
 .g3d-scheme-grid {
