@@ -1331,3 +1331,52 @@ input[type=hidden].pt-hidden-val { display:none !important; }
   text-align: center;
 }
 .g3d-lbl-inp:focus { outline: none; border-color: var(--accent, #4a6fa5); }
+
+/* ── 3D Geometry section colors ── */
+.sub-group--g3d-shape  { border:2px solid #1a5c8e; }
+.sub-group--g3d-dims   { border:2px solid #0f766e; }
+.sub-group--g3d-view   { border:2px solid #6b21a8; }
+.sub-group--g3d-appear { border:2px solid #c05508; }
+.sub-group--g3d-canvas { border:2px solid #374151; }
+.sub-group--g3d-annot  { border:2px solid #9f1239; }
+.sub-group--g3d-shape  > .sub-group-title { color:#1a5c8e; background:#d6eaf8; }
+.sub-group--g3d-dims   > .sub-group-title { color:#0f766e; background:#ccf0ec; }
+.sub-group--g3d-view   > .sub-group-title { color:#6b21a8; background:#ede0fc; }
+.sub-group--g3d-appear > .sub-group-title { color:#c05508; background:#fde8c8; }
+.sub-group--g3d-canvas > .sub-group-title { color:#374151; background:#f0f2f5; }
+.sub-group--g3d-annot  > .sub-group-title { color:#9f1239; background:#fdd5df; }
+
+/* Per-dimension annotation row */
+.g3d-dim-ann-row {
+  display: grid;
+  grid-template-columns: 18px 60px 1fr 26px 48px;
+  gap: 4px 5px;
+  align-items: center;
+  margin-bottom: 5px;
+}
+.g3d-dim-ann-row label { font-size: 12px; color: var(--muted); cursor: pointer; }
+.g3d-dim-ann-row input[type=color] {
+  width: 26px; height: 22px; padding: 0;
+  border: 1px solid var(--border); border-radius: 3px; cursor: pointer;
+}
+.g3d-dim-ann-row input[type=number] {
+  width: 48px; padding: 2px 4px; font-size: 11px;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: var(--surface); color: var(--text);
+}
+.g3d-dim-ann-row input[type=checkbox] {
+  accent-color: var(--accent, #4a6fa5); cursor: pointer;
+}
+
+/* Rotation slider rows */
+.g3d-rot-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.g3d-rot-row label { flex-shrink: 0; min-width: 80px; font-size: 12px; color: var(--muted); }
+.g3d-rot-row input[type=range] { flex: 1; }
+.g3d-rot-row .g3d-rot-val { min-width: 28px; text-align: right; font-size: 12px; color: var(--muted); }
+
+/* Global-defaults divider label inside annotation section */
+.g3d-ann-divider {
+  font-size: 10px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .05em;
+  border-top: 1px solid var(--border); padding-top: 6px; margin-bottom: 5px;
+}
