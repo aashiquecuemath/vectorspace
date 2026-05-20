@@ -105,12 +105,18 @@ function _dim(p1, p2, norm, label, o, proj, track) {
   }
   const lPos = o.labelPos || 'center';
   const lOff = (o.labelOffset != null) ? o.labelOffset : (o.fontSize * 0.6 + 4);
+  const _arrowMidXY = () => [(ax1+ax2)/2, (ay1+ay2)/2];
   if (label && lPos === 'center') {
-    // Break arrow at midpoint to leave room for text
-    const mx = (ax1+ax2)/2, my = (ay1+ay2)/2;
+    const [mx, my] = _arrowMidXY();
     const alen = Math.hypot(ax2-ax1, ay2-ay1);
     const tx = (ax2-ax1)/alen, ty = (ay2-ay1)/alen;
-    const gap = Math.min(label.length * o.fontSize * 0.32 + 6, alen * 0.42);
+    // Gap accounts for rotated label's extent projected onto arrow tangent
+    const rot_rad = (o.labelRot || 0) * Math.PI / 180;
+    const cosR = Math.cos(rot_rad), sinR = Math.sin(rot_rad);
+    const hw = label.length * o.fontSize * 0.32 + 3;
+    const hh = o.fontSize * 0.55;
+    const tangExtent = hw * Math.abs(cosR*tx + sinR*ty) + hh * Math.abs(-sinR*tx + cosR*ty);
+    const gap = Math.min(tangExtent + 6, alen * 0.42);
     s += `<line x1="${fmt(ax1)}" y1="${fmt(ay1)}" x2="${fmt(mx-tx*gap)}" y2="${fmt(my-ty*gap)}"
   stroke="${o.arrowColor}" stroke-width="${o.arrowW}" marker-start="url(#${o.mid})"/>\n`;
     s += `<line x1="${fmt(mx+tx*gap)}" y1="${fmt(my+ty*gap)}" x2="${fmt(ax2)}" y2="${fmt(ay2)}"
@@ -121,16 +127,16 @@ function _dim(p1, p2, norm, label, o, proj, track) {
   marker-start="url(#${o.mid})" marker-end="url(#${o.mid})"/>\n`;
   }
   if (label) {
-    const mx = (ax1+ax2)/2, my = (ay1+ay2)/2;
+    const [mx, my] = _arrowMidXY();
     let lx, ly;
     if (lPos === 'left') {
-      // Screen-space left of midpoint + small perpendicular clearance
+      // Pure screen-space left of the arrow midpoint — no Y component
       lx = mx - lOff;
-      ly = my + dy * (o.fontSize * 0.5 + 2);
+      ly = my;
     } else if (lPos === 'right') {
-      // Screen-space right of midpoint + small perpendicular clearance
+      // Pure screen-space right of the arrow midpoint — no Y component
       lx = mx + lOff;
-      ly = my + dy * (o.fontSize * 0.5 + 2);
+      ly = my;
     } else {
       // Center: perpendicular offset from midpoint
       lx = mx + dx * lOff;
