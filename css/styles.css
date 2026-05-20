@@ -1348,6 +1348,14 @@ input[type=hidden].pt-hidden-val { display:none !important; }
 .sub-group--g3d-annot  > .sub-group-title { color:#9f1239; background:#fdd5df; }
 .sub-group--g3d-net    > .sub-group-title { color:#0d6e6e; background:#ccefef; }
 
+/* Net face dim label rows */
+.g3d-nfl-row { border:1px solid var(--border); border-radius:5px; margin-bottom:5px; overflow:hidden; }
+.g3d-nfl-head { display:flex; align-items:center; gap:7px; padding:4px 8px; background:var(--surface-alt,#f5f7fa); border-bottom:1px solid var(--border); }
+.g3d-nfl-name { font-size:11px; font-weight:600; flex:1; }
+.g3d-nfl-body { display:flex; align-items:center; gap:6px; padding:5px 8px; flex-wrap:wrap; }
+.g3d-nfl-txt  { flex:1; min-width:80px; font-size:11px; }
+.g3d-nfl-use-color-lbl { font-size:10px; display:flex; align-items:center; gap:3px; white-space:nowrap; }
+
 /* Per-dimension annotation section */
 .g3d-dim-section {
   border: 1px solid var(--border);

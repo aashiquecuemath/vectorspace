@@ -760,6 +760,15 @@ function generateGeometry3D() {
   const flBg      = val('g3d-fl-bg')     || '';
   const flBgOp    = num('g3d-fl-bg-op')  != null ? (num('g3d-fl-bg-op')||0) : 0.6;
 
+  // Net face dimension label options
+  const nflEnabled = chk('g3d-nfl-enable');
+  const nflColor   = val('g3d-nfl-color') || '#333333';
+  const nflSize    = Math.max(6, num('g3d-nfl-size') || 11);
+  const nflBold    = chk('g3d-nfl-bold');
+  const nflItal    = chk('g3d-nfl-ital');
+  const nflFont    = val('g3d-nfl-font')  || 'Arial,sans-serif';
+  const nflDy      = num('g3d-nfl-dy')    || 0;
+
   const rotHDeg = num('g3d-rot-h') || 0;
   const rotVDeg = num('g3d-rot-v') || 0;
   const rotZDeg = num('g3d-rot-z') || 0;
@@ -965,7 +974,7 @@ function generateGeometry3D() {
     }
   }
 
-  // ── Face labels on net ───────────────────────────────────────────────────
+  // ── Face labels on net (A/B/C identifiers) ──────────────────────────────
   let netLabelParts = '';
   if (flEnabled && netResult && showNet) {
     netResult.faces.forEach((f, idx) => {
@@ -974,11 +983,32 @@ function generateGeometry3D() {
     });
   }
 
+  // ── Net face dimension labels ────────────────────────────────────────────
+  let netDimLabelParts = '';
+  if (nflEnabled && netResult && showNet) {
+    const nflDims = {w, h, d, b, r, s};
+    netResult.faces.forEach((f, idx) => {
+      if (!chk(`g3d-nfl-en-${idx}`)) return;
+      const customText = val(`g3d-nfl-text-${idx}`);
+      // blank input → auto-compute with live dimension values
+      const txt = customText
+        ? customText
+        : _g3dNetFaceDimText(shape, f.name, nflDims);
+      if (!txt) return;
+      const usePerColor = chk(`g3d-nfl-use-color-${idx}`);
+      const faceColor = usePerColor ? (val(`g3d-nfl-color-${idx}`) || nflColor) : nflColor;
+      const fw = nflBold ? 'bold' : 'normal';
+      const fi = nflItal ? 'italic' : 'normal';
+      const lx = f.cx, ly = f.cy + nflDy;
+      netDimLabelParts += `<text x="${fmt(lx)}" y="${fmt(ly)}" text-anchor="middle" dominant-baseline="central" font-family="${escXml(nflFont)}" font-size="${nflSize}" font-weight="${fw}" font-style="${fi}" fill="${faceColor}">${escXml(txt)}</text>\n`;
+    });
+  }
+
   // ── Composite layout ─────────────────────────────────────────────────────
   const PAD = 12;
   const defsHTML = [...markers.entries()].map(([color, {id, arrowSz}]) => _arrowDef(id, color, arrowSz)).join('\n');
   const netGroup = netResult
-    ? (netResult.svg + '\n' + netAnnParts.join('') + '\n' + netLabelParts)
+    ? (netResult.svg + '\n' + netAnnParts.join('') + '\n' + netLabelParts + '\n' + netDimLabelParts)
     : '';
 
   if (netMode === 'net' && netResult) {
@@ -1033,6 +1063,89 @@ function generateGeometry3D() {
   svg += '\n' + face3dParts;
   svg += '\n</svg>';
   return svg;
+}
+
+/* ── Net face dimension label helpers ──────────────────────────────────── */
+
+function _g3dNetFaceDimText(shape, faceName, dims) {
+  const {w,h,d,b,r,s} = dims;
+  const fv = v => { const n=Math.round(v*100)/100; return String(n); };
+  const x2 = (a,c) => `${fv(a)} × ${fv(c)}`;
+  if (shape==='cube')     return x2(s,s);
+  if (shape==='cuboid') {
+    if (faceName==='Top'||faceName==='Bottom') return x2(w,d);
+    if (faceName==='Front'||faceName==='Back') return x2(w,h);
+    return x2(d,h);
+  }
+  if (shape==='cylinder') {
+    if (faceName==='Side') return `${fv(Math.round(2*Math.PI*r*100)/100)} × ${fv(h)}`;
+    return `r = ${fv(r)}`;
+  }
+  if (shape==='cone') {
+    const sl=Math.round(Math.sqrt(r*r+h*h)*100)/100;
+    if (faceName==='Lateral') return `l = ${fv(sl)}`;
+    return `r = ${fv(r)}`;
+  }
+  if (shape==='triprism') {
+    const sl=Math.round(Math.sqrt((b/2)*(b/2)+h*h)*100)/100;
+    if (faceName==='Front'||faceName==='Back') return x2(b,h);
+    if (faceName==='Bottom') return x2(b,d);
+    return x2(sl,d);
+  }
+  if (shape==='pyramid') {
+    const sl=Math.round(Math.sqrt((b/2)*(b/2)+h*h)*100)/100;
+    if (faceName==='Base') return x2(b,b);
+    return `${fv(b)} × ${fv(sl)}`;
+  }
+  if (shape==='hexprism') {
+    if (faceName==='Top'||faceName==='Bottom') return `r = ${fv(r)}`;
+    return x2(r,h);
+  }
+  return '';
+}
+
+function _g3dFillNetFaceInputs(shape) {
+  const wrap = document.getElementById('g3d-nfl-face-inputs');
+  if (!wrap) return;
+  const netBuilders = {
+    cube:     () => _buildCuboidNet(2,2,2,'#000','#000',1,1),
+    cuboid:   () => _buildCuboidNet(3,2,2,'#000','#000',1,1),
+    cylinder: () => _buildCylinderNet(1,3,'#000','#000',1,1),
+    cone:     () => _buildConeNet(1.2,3,'#000','#000',1,1),
+    triprism: () => _buildTriPrismNet(2,2,2,'#000','#000',1,1),
+    pyramid:  () => _buildPyramidNet(2,3,'#000','#000',1,1),
+    hexprism: () => _buildHexPrismNet(1,2,'#000','#000',1,1),
+    sphere:   () => null,
+  };
+  const nb = netBuilders[shape];
+  const nr = nb ? nb() : null;
+  if (!nr) { wrap.innerHTML = '<em style="font-size:11px;color:var(--muted)">No net for sphere</em>'; return; }
+
+  // Read current param values from DOM (just re-populated by _g3dFillDimPanel)
+  const dims = {
+    w:num('g3d-w')||3, h:num('g3d-h')||3, d:num('g3d-d')||2,
+    b:num('g3d-b')||2, r:num('g3d-r')||1.2, s:num('g3d-s')||2,
+  };
+
+  wrap.innerHTML = nr.faces.map((f,i) => {
+    const autoText = _g3dNetFaceDimText(shape, f.name, dims);
+    return `<div class="g3d-nfl-row">
+  <div class="g3d-nfl-head">
+    <input type="checkbox" id="g3d-nfl-en-${i}" checked>
+    <label for="g3d-nfl-en-${i}" class="g3d-nfl-name">${f.name}</label>
+  </div>
+  <div class="g3d-nfl-body">
+    <input type="text" id="g3d-nfl-text-${i}" placeholder="${escXml(autoText)}" maxlength="24" class="g3d-nfl-txt" title="Leave blank for auto: ${escXml(autoText)}">
+    <input type="color" id="g3d-nfl-color-${i}" value="#333333" title="Per-face colour override">
+    <label class="g3d-nfl-use-color-lbl"><input type="checkbox" id="g3d-nfl-use-color-${i}"> use</label>
+  </div>
+</div>`;
+  }).join('');
+
+  wrap.querySelectorAll('input').forEach(el => {
+    el.addEventListener('input',  () => { if (typeof render==='function') render(); });
+    el.addEventListener('change', () => { if (typeof render==='function') render(); });
+  });
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -1174,6 +1287,28 @@ function buildGeometry3DUI() {
   </div>
   <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Custom labels (leave blank for A, B, C…):</div>
   <div id="g3d-fl-face-inputs"></div>
+</div>
+
+<div class="g3d-dim-sub-head" style="margin-top:10px">Face Dimension Labels</div>
+<div class="check-row" style="margin-bottom:6px">
+  <input type="checkbox" id="g3d-nfl-enable">
+  <label for="g3d-nfl-enable">Show dimension labels on faces</label>
+</div>
+<div id="g3d-nfl-body" style="display:none">
+  <div class="row3" style="margin-bottom:4px">
+    <div><label>Color</label><input type="color" id="g3d-nfl-color" value="#333333"></div>
+    <div><label>Size</label><input type="number" id="g3d-nfl-size" value="11" min="6" max="40" step="1"></div>
+    <div><label>Y offset</label><input type="number" id="g3d-nfl-dy" value="0" min="-80" max="80" step="1" title="Vertical offset from face centre (px)"></div>
+  </div>
+  <div class="row2" style="margin-bottom:4px">
+    <div><label>Font</label><select id="g3d-nfl-font">${netFontOptions}</select></div>
+    <div style="display:flex;gap:10px;align-items:flex-end;padding-bottom:2px">
+      <div class="check-row"><input type="checkbox" id="g3d-nfl-bold"><label for="g3d-nfl-bold">Bold</label></div>
+      <div class="check-row"><input type="checkbox" id="g3d-nfl-ital"><label for="g3d-nfl-ital">Italic</label></div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Per-face text (leave blank for auto) + optional color override:</div>
+  <div id="g3d-nfl-face-inputs"></div>
 </div>`;
 
   container.innerHTML =
@@ -1277,6 +1412,7 @@ function _g3dFillDimPanel(shape) {
   });
 
   _g3dFillFaceInputs(shape);
+  _g3dFillNetFaceInputs(shape);
 }
 
 // Face label per-face custom text inputs — re-built when shape changes
@@ -1379,6 +1515,8 @@ function _g3dWireUI() {
     'g3d-net-mode','g3d-net-gap','g3d-net-edge-color','g3d-net-edge-w',
     'g3d-fl-enable','g3d-fl-on3d','g3d-fl-color','g3d-fl-size',
     'g3d-fl-bg','g3d-fl-bg-op','g3d-fl-font','g3d-fl-bold','g3d-fl-ital',
+    'g3d-nfl-enable','g3d-nfl-color','g3d-nfl-size','g3d-nfl-dy',
+    'g3d-nfl-font','g3d-nfl-bold','g3d-nfl-ital',
   ].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -1405,4 +1543,13 @@ function _g3dWireUI() {
   };
   document.getElementById('g3d-fl-enable')?.addEventListener('change', () => { _updateFLUI(); if (typeof render==='function') render(); });
   _updateFLUI();
+
+  // Net face dim label enable toggle
+  const _updateNFLUI = () => {
+    const on = document.getElementById('g3d-nfl-enable')?.checked;
+    const body = document.getElementById('g3d-nfl-body');
+    if (body) body.style.display = on ? '' : 'none';
+  };
+  document.getElementById('g3d-nfl-enable')?.addEventListener('change', () => { _updateNFLUI(); if (typeof render==='function') render(); });
+  _updateNFLUI();
 }
