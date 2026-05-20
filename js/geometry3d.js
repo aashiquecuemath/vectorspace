@@ -52,8 +52,8 @@ function _seg(x1,y1,x2,y2,col,sw,dash) {
 
 /* top=lightest → front → right → left → bottom → back=darkest */
 function _faceColor(base, role) {
-  const t = { top:0.18, front:0, right:-0.10, left:-0.20, bottom:-0.25, back:-0.32 };
-  const d = t[role] || 0;
+  const t = { top:0.42, front:0.22, right:0.08, left:-0.05, bottom:-0.12, back:-0.22 };
+  const d = t[role] ?? 0.22;
   return d >= 0 ? _lighten(base, d) : _shade(base, 1 + d);
 }
 function _facePoly(verts, base, role, eCol, eW, proj) {
@@ -98,8 +98,9 @@ function _dim(p1, p2, norm, label, o, proj, track) {
   if (o.showTicks) {
     const tx1 = ax1+dx*TICK, ty1 = ay1+dy*TICK;
     const tx2 = ax2+dx*TICK, ty2 = ay2+dy*TICK;
-    s += _seg(sx1,sy1, tx1,ty1, o.arrowColor, o.arrowW*0.7) + '\n';
-    s += _seg(sx2,sy2, tx2,ty2, o.arrowColor, o.arrowW*0.7) + '\n';
+    const tW = o.tickW != null ? o.tickW : o.arrowW * 0.7;
+    s += _seg(sx1,sy1, tx1,ty1, o.arrowColor, tW) + '\n';
+    s += _seg(sx2,sy2, tx2,ty2, o.arrowColor, tW) + '\n';
     if (track) { track(tx1,ty1); track(tx2,ty2); }
   }
   const lPos = o.labelPos || 'center';
@@ -531,6 +532,7 @@ function generateGeometry3D() {
     const dBold     = chk(`g3d-dim-${shape}-${dm.key}-bold`);
     const dItal     = chk(`g3d-dim-${shape}-${dm.key}-ital`);
     const dTicks    = chk(`g3d-dim-${shape}-${dm.key}-ticks`);
+    const dTickW    = Math.max(0.3, num(`g3d-dim-${shape}-${dm.key}-tick-w`) || 1);
     const dMid      = 'g3d_arr_' + dColor.replace('#','');
     if (!markers.has(dColor)) markers.set(dColor, { id: dMid, arrowSz: dAs });
     const dOpts = {
@@ -538,7 +540,7 @@ function generateGeometry3D() {
       arrowW: dAw, fontSize: dFs, fontFamily: dFf,
       fontBold: dBold, fontItalic: dItal,
       offset: dOff, labelOffset: dLblOff, labelPos: dLblPos,
-      showTicks: dTicks, mid: dMid,
+      showTicks: dTicks, tickW: dTickW, mid: dMid,
     };
     annParts.push(_dim(dd.p1, dd.p2, dd.norm, lbl, dOpts, proj, _track));
   }
@@ -725,8 +727,9 @@ function _g3dFillDimPanel(shape) {
         <div class="check-row"><input type="checkbox" id="${k}-ital" checked><label for="${k}-ital">Italic</label></div>
       </div>
     </div>
-    <div style="margin-top:5px">
-      <div class="check-row"><input type="checkbox" id="${k}-ticks" checked><label for="${k}-ticks">Extension lines</label></div>
+    <div class="row2" style="margin-top:5px">
+      <div class="check-row" style="margin-top:18px"><input type="checkbox" id="${k}-ticks" checked><label for="${k}-ticks">Extension lines</label></div>
+      <div><label>Line thickness</label><input type="number" id="${k}-tick-w" value="1" min="0.3" max="6" step="0.2"></div>
     </div>
   </div>
 </div>`;
