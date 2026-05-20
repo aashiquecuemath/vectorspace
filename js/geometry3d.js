@@ -159,6 +159,81 @@ function _dim(p1, p2, norm, label, o, proj, track) {
   return s;
 }
 
+/* 2-D dimension annotation — draw an arrow from (x1,y1)→(x2,y2) offset in
+   direction (nx,ny).  Same option object as _dim.                           */
+function _dim2d(x1,y1, x2,y2, nx,ny, label, o) {
+  const off = o.offset || 28, TICK = off*0.3+4;
+  const ax1=x1+nx*off, ay1=y1+ny*off;
+  const ax2=x2+nx*off, ay2=y2+ny*off;
+  const alen = Math.hypot(ax2-ax1, ay2-ay1);
+  if (alen < 2) return '';
+  const atx=(ax2-ax1)/alen, aty=(ay2-ay1)/alen;
+  let s = '';
+  if (o.showTicks) {
+    const tW = o.tickW != null ? o.tickW : o.arrowW*0.7;
+    s += _seg(x1,y1, x1+nx*(off+TICK),y1+ny*(off+TICK), o.arrowColor, tW);
+    s += _seg(x2,y2, x2+nx*(off+TICK),y2+ny*(off+TICK), o.arrowColor, tW);
+  }
+  const mx=(ax1+ax2)/2, my=(ay1+ay2)/2;
+  if (label) {
+    const rot_rad=(o.labelRot||0)*Math.PI/180;
+    const cosR=Math.cos(rot_rad), sinR=Math.sin(rot_rad);
+    const hw=label.length*o.fontSize*0.32+3, hh=o.fontSize*0.55;
+    const gap=Math.min(hw*Math.abs(cosR*atx+sinR*aty)+hh*Math.abs(-sinR*atx+cosR*aty)+6, alen*0.42);
+    s += `<line x1="${fmt(ax1)}" y1="${fmt(ay1)}" x2="${fmt(mx-atx*gap)}" y2="${fmt(my-aty*gap)}" stroke="${o.arrowColor}" stroke-width="${o.arrowW}" marker-start="url(#${o.mid})"/>\n`;
+    s += `<line x1="${fmt(mx+atx*gap)}" y1="${fmt(my+aty*gap)}" x2="${fmt(ax2)}" y2="${fmt(ay2)}" stroke="${o.arrowColor}" stroke-width="${o.arrowW}" marker-end="url(#${o.mid})"/>\n`;
+  } else {
+    s += `<line x1="${fmt(ax1)}" y1="${fmt(ay1)}" x2="${fmt(ax2)}" y2="${fmt(ay2)}" stroke="${o.arrowColor}" stroke-width="${o.arrowW}" marker-start="url(#${o.mid})" marker-end="url(#${o.mid})"/>\n`;
+  }
+  if (label) {
+    const lOff = (o.labelOffset!=null) ? o.labelOffset : (o.fontSize*0.6+4);
+    const lx=mx+nx*lOff, ly=my+ny*lOff;
+    const fw=o.fontBold?'bold':'normal', fi=o.fontItalic?'italic':'normal';
+    const rot=o.labelRot||0;
+    const xfm=rot?` transform="rotate(${fmt(rot)},${fmt(lx)},${fmt(ly)})"`: '';
+    const labelColor=o.labelColor||o.arrowColor;
+    s += `<text x="${fmt(lx)}" y="${fmt(ly)}" text-anchor="middle" dominant-baseline="central" font-family="${o.fontFamily}" font-size="${o.fontSize}" font-weight="${fw}" font-style="${fi}" fill="${labelColor}"${xfm}>${escXml(label)}</text>\n`;
+  }
+  return s;
+}
+
+/* Return the 2-D annotation spec for a given shape+dimKey on the net.
+   Returns {x1,y1,x2,y2,nx,ny} in px, or null if not applicable.
+   nd = pixel-scaled net dimensions: {W,H,D,B,R,sl,S,ry,rowY,rx,circ,tcx,cx,bcy,slant} */
+function _getNetDimSpec(shape, key, nd) {
+  const {W,H,D,B,R,sl,S,ry,rowY,rx,circ,tcx,cx,bcy,slant} = nd;
+  if (shape==='cube') {
+    if (key==='s') return {x1:D,y1:D+H, x2:D+W,y2:D+H, nx:0,ny:1};
+  }
+  if (shape==='cuboid') {
+    if (key==='w') return {x1:D,y1:D+H, x2:D+W,y2:D+H, nx:0,ny:1};
+    if (key==='h') return {x1:D,y1:D,   x2:D,y2:D+H,   nx:-1,ny:0};
+    if (key==='d') return {x1:D+W,y1:0, x2:D+W,y2:D,   nx:1,ny:0};
+  }
+  if (shape==='cylinder') {
+    if (key==='r') return {x1:tcx,y1:R,    x2:tcx+R,y2:R,    nx:0,ny:-1};
+    if (key==='h') return {x1:rx+circ,y1:R, x2:rx+circ,y2:R+H, nx:1,ny:0};
+  }
+  if (shape==='cone') {
+    if (key==='r') return {x1:cx,y1:bcy,   x2:cx+R,y2:bcy,  nx:0,ny:1};
+    if (key==='h') return {x1:cx,y1:slant,  x2:cx,y2:0,      nx:1,ny:0};
+  }
+  if (shape==='triprism') {
+    if (key==='b') return {x1:sl,y1:H+D,      x2:sl+B,y2:H+D,    nx:0,ny:1};
+    if (key==='h') return {x1:sl+B/2,y1:H,    x2:sl+B/2,y2:0,    nx:-1,ny:0};
+    if (key==='d') return {x1:sl+B+sl,y1:H,   x2:sl+B+sl,y2:H+D, nx:1,ny:0};
+  }
+  if (shape==='pyramid') {
+    if (key==='b') return {x1:sl,y1:sl+B,      x2:sl+B,y2:sl+B,     nx:0,ny:1};
+    if (key==='h') return {x1:sl+B/2,y1:sl+B,  x2:sl+B/2,y2:sl+B+sl, nx:1,ny:0};
+  }
+  if (shape==='hexprism') {
+    if (key==='r') return {x1:0,y1:rowY,   x2:S,y2:rowY,    nx:0,ny:-1};
+    if (key==='h') return {x1:6*S,y1:rowY, x2:6*S,y2:rowY+H, nx:1,ny:0};
+  }
+  return null;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    Shape builders  —  proj: [x,y,z]→[px,py];  rotH: radians (for cylinders)
    Each returns { svg, dims }
@@ -807,8 +882,7 @@ function generateGeometry3D() {
   // (built after net so _netFaceIndexMap is populated — but we defer to after net build)
   let face3dParts = '';
 
-  const defsHTML = [...markers.entries()].map(([color, {id, arrowSz}]) => _arrowDef(id, color, arrowSz)).join('\n');
-
+  // defsHTML built after all annotation loops so net markers are included
   // ── Build net ────────────────────────────────────────────────────────────
   let netResult = null;
   const showNet = netMode === 'both' || netMode === 'net';
@@ -840,6 +914,57 @@ function generateGeometry3D() {
     });
   }
 
+  // ── Net dimension annotations ────────────────────────────────────────────
+  const netAnnParts = [];
+  if (netResult && showNet) {
+    // Pixel-scaled net dims for _getNetDimSpec
+    const nd = {
+      W: w*netSc, H: h*netSc, D: d*netSc, B: b*netSc, R: r*netSc,
+      sl: Math.sqrt((b/2)*(b/2)+h*h)*netSc,
+      S: r*netSc,
+      ry: r*netSc*Math.sqrt(3)/2,
+      rowY: r*netSc*Math.sqrt(3)/2,
+      rx: r*netSc,
+      circ: 2*Math.PI*r*netSc,
+      tcx: r*netSc + 2*Math.PI*r*netSc/2,
+      cx: Math.sqrt((r*netSc)*(r*netSc)+(h*netSc)*(h*netSc)),
+      bcy: Math.sqrt((r*netSc)*(r*netSc)+(h*netSc)*(h*netSc))*2 + r*netSc + 4,
+      slant: Math.sqrt((r*netSc)*(r*netSc)+(h*netSc)*(h*netSc)),
+    };
+    if (shape==='cube') { nd.W=s*netSc; nd.H=s*netSc; nd.D=s*netSc; }
+
+    for (const dm of dimMeta) {
+      const dimKeyForNet = shape==='cube' ? 's' : dm.key;
+      if (!chk(`g3d-dim-${shape}-${dm.key}-net`)) continue;
+      const spec = _getNetDimSpec(shape, dimKeyForNet, nd);
+      if (!spec) continue;
+      const lbl       = val(`g3d-dim-${shape}-${dm.key}-lbl`)  || dm.ph;
+      const dColor    = val(`g3d-dim-${shape}-${dm.key}-color`)     || '#cc3300';
+      const dLblColor = val(`g3d-dim-${shape}-${dm.key}-lbl-color`) || dColor;
+      const dOff      = Math.max(5, num(`g3d-dim-${shape}-${dm.key}-off`) || 22);
+      const dLblOff   = num(`g3d-dim-${shape}-${dm.key}-lbl-off`) != 0
+                        ? num(`g3d-dim-${shape}-${dm.key}-lbl-off`) : 10;
+      const dFs       = Math.max(6, num(`g3d-dim-${shape}-${dm.key}-fs`) || 12);
+      const dAw       = Math.max(0.5, num(`g3d-dim-${shape}-${dm.key}-aw`) || 1.2);
+      const dAs       = Math.max(2, num(`g3d-dim-${shape}-${dm.key}-as`) || 4);
+      const dFf       = val(`g3d-dim-${shape}-${dm.key}-ff`) || 'Arial,sans-serif';
+      const dBold     = chk(`g3d-dim-${shape}-${dm.key}-bold`);
+      const dItal     = chk(`g3d-dim-${shape}-${dm.key}-ital`);
+      const dLblRot   = num(`g3d-dim-${shape}-${dm.key}-lbl-rot`) || 0;
+      const dTicks    = chk(`g3d-dim-${shape}-${dm.key}-ticks`);
+      const dTickW    = Math.max(0.3, num(`g3d-dim-${shape}-${dm.key}-tick-w`) || 0.8);
+      const dMid      = 'g3d_arr_' + dColor.replace('#','');
+      if (!markers.has(dColor)) markers.set(dColor, { id: dMid, arrowSz: dAs });
+      netAnnParts.push(_dim2d(spec.x1,spec.y1, spec.x2,spec.y2, spec.nx,spec.ny, lbl, {
+        arrowColor: dColor, labelColor: dLblColor,
+        arrowW: dAw, fontSize: dFs, fontFamily: dFf,
+        fontBold: dBold, fontItalic: dItal,
+        offset: dOff, labelOffset: dLblOff, labelRot: dLblRot,
+        showTicks: dTicks, tickW: dTickW, mid: dMid,
+      }));
+    }
+  }
+
   // ── Face labels on net ───────────────────────────────────────────────────
   let netLabelParts = '';
   if (flEnabled && netResult && showNet) {
@@ -851,16 +976,20 @@ function generateGeometry3D() {
 
   // ── Composite layout ─────────────────────────────────────────────────────
   const PAD = 12;
+  const defsHTML = [...markers.entries()].map(([color, {id, arrowSz}]) => _arrowDef(id, color, arrowSz)).join('\n');
+  const netGroup = netResult
+    ? (netResult.svg + '\n' + netAnnParts.join('') + '\n' + netLabelParts)
+    : '';
 
   if (netMode === 'net' && netResult) {
-    // Net only
-    const nw = Math.ceil(netResult.w) + 2*PAD;
-    const nh = Math.ceil(netResult.h) + 2*PAD;
+    // Net only — expand bbox to include annotation offsets (+PAD*3 for arrows outside net)
+    const nw = Math.ceil(netResult.w) + 2*PAD*3;
+    const nh = Math.ceil(netResult.h) + 2*PAD*3;
     let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${nw} ${nh}" width="${nw}" height="${nh}">`;
     if (!bgNone) svg += `\n<rect x="0" y="0" width="${nw}" height="${nh}" fill="${bgCol}" rx="2"/>`;
-    svg += `\n<g transform="translate(${PAD},${PAD})">`;
-    svg += '\n' + netResult.svg;
-    svg += '\n' + netLabelParts;
+    if (defsHTML) svg += `\n<defs>\n${defsHTML}\n</defs>`;
+    svg += `\n<g transform="translate(${PAD*3},${PAD*3})">`;
+    svg += '\n' + netGroup;
     svg += '\n</g>\n</svg>';
     return svg;
   }
@@ -872,28 +1001,24 @@ function generateGeometry3D() {
   const vh3 = isFinite(_by1) ? Math.ceil(_by1 - _by0) + 2*PAD : cH;
 
   if (netMode === 'both' && netResult) {
-    // Side by side: 3D on left, net on right
-    const nw2 = Math.ceil(netResult.w) + 2*PAD;
-    const nh2 = Math.ceil(netResult.h) + 2*PAD;
+    // Expand net area for annotation arrows outside net bounds
+    const nw2 = Math.ceil(netResult.w) + 2*PAD*3;
+    const nh2 = Math.ceil(netResult.h) + 2*PAD*3;
     const totalW = vw3 + netGap + nw2;
     const totalH = Math.max(vh3, nh2);
-    // Vertically center the shorter one
     const offset3y = Math.round((totalH - vh3) / 2);
     const offsetNy = Math.round((totalH - nh2) / 2);
     const netX = vw3 + netGap;
     let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}">`;
     if (!bgNone) svg += `\n<rect x="0" y="0" width="${totalW}" height="${totalH}" fill="${bgCol}" rx="2"/>`;
     if (defsHTML) svg += `\n<defs>\n${defsHTML}\n</defs>`;
-    // 3D group
     svg += `\n<g transform="translate(${-vx3},${offset3y - vy3})">`;
     svg += '\n' + result.svg;
     svg += '\n' + annParts.join('');
     svg += '\n' + face3dParts;
     svg += '\n</g>';
-    // Net group
-    svg += `\n<g transform="translate(${netX + PAD},${offsetNy + PAD})">`;
-    svg += '\n' + netResult.svg;
-    svg += '\n' + netLabelParts;
+    svg += `\n<g transform="translate(${netX + PAD*3},${offsetNy + PAD*3})">`;
+    svg += '\n' + netGroup;
     svg += '\n</g>';
     svg += '\n</svg>';
     return svg;
@@ -1091,11 +1216,17 @@ function _g3dFillDimPanel(shape) {
 
   panel.innerHTML = defs.map(dm => {
     const k = `g3d-dim-${shape}-${dm.key}`;
+    const hasNet = ['cube','cuboid','cylinder','cone','triprism','pyramid','hexprism'].includes(shape)
+                 && shape !== 'sphere';
+    const netChk = hasNet
+      ? `<div class="check-row" style="margin-left:auto;font-size:10px"><input type="checkbox" id="${k}-net"><label for="${k}-net">On net</label></div>`
+      : '';
     return `
 <div class="g3d-dim-section">
   <div class="g3d-dim-section-head">
     <input type="checkbox" id="${k}">
     <label for="${k}" class="g3d-dim-section-label">${dm.label}</label>
+    ${netChk}
   </div>
   <div class="g3d-dim-section-body">
     <div class="g3d-dim-sub-head">Arrow</div>
