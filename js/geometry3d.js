@@ -525,47 +525,61 @@ function _netPoly(pts, fill, stroke, sw) {
   const d = pts.map(([x,y],i)=>`${i?'L':'M'}${fmt(x)},${fmt(y)}`).join('')+'Z';
   return `<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/>`;
 }
+const _fD = (v) => String(Math.round(v * 100) / 100);
+// Build dims for a flat rectangular face at pixel (fx,fy,fw,fh) with world vals (va,vb).
+// Arrows placed inside the face, along bottom & right edges.
+const _rectDims = (fx,fy,fw,fh,va,vb) => [
+  {x1:fx, y1:fy+fh, x2:fx+fw, y2:fy+fh, nx:0,  ny:-1, val:_fD(va)},
+  {x1:fx+fw, y1:fy, x2:fx+fw, y2:fy+fh, nx:-1, ny:0,  val:_fD(vb)},
+];
 
 function _buildCuboidNet(w, h, d, col, eCol, eW, sc) {
   const W=w*sc, H=h*sc, D=d*sc;
   const fc = role => _faceColor(col, role);
   const parts=[], faces=[];
-  const addR = (x,y,fw,fh,role,name) => {
+  const addR = (x,y,fw,fh,role,name,va,vb) => {
     parts.push(_netRect(x,y,fw,fh,fc(role),eCol,eW));
-    faces.push({name, cx:x+fw/2, cy:y+fh/2});
+    faces.push({name, cx:x+fw/2, cy:y+fh/2, dims:_rectDims(x,y,fw,fh,va,vb)});
   };
-  addR(D,       0,     W, D,  'top',    'Top');
-  addR(0,       D,     D, H,  'left',   'Left');
-  addR(D,       D,     W, H,  'front',  'Front');
-  addR(D+W,     D,     D, H,  'right',  'Right');
-  addR(D+W+D,   D,     W, H,  'back',   'Back');
-  addR(D,       D+H,   W, D,  'bottom', 'Bottom');
+  addR(D,       0,     W, D,  'top',    'Top',    w, d);
+  addR(0,       D,     D, H,  'left',   'Left',   d, h);
+  addR(D,       D,     W, H,  'front',  'Front',  w, h);
+  addR(D+W,     D,     D, H,  'right',  'Right',  d, h);
+  addR(D+W+D,   D,     W, H,  'back',   'Back',   w, h);
+  addR(D,       D+H,   W, D,  'bottom', 'Bottom', w, d);
   return {svg:parts.join('\n'), w:D+W+D+W, h:D+H+D, faces};
 }
 
 function _buildTriPrismNet(b, h, d, col, eCol, eW, sc) {
   const B=b*sc, H=h*sc, D=d*sc;
   const sl = Math.sqrt((b/2)*(b/2)+h*h)*sc;
+  const slW = Math.sqrt((b/2)*(b/2)+h*h); // world slant
   const fc = role => _faceColor(col, role);
   const parts=[], faces=[];
   // Layout: 3 rects in a row; front & back triangles attached to bottom rect
   const rx = sl, ry = H;      // bottom rect top-left
   // Bottom rect
   parts.push(_netRect(rx,ry,B,D,fc('bottom'),eCol,eW));
-  faces.push({name:'Bottom',cx:rx+B/2,cy:ry+D/2});
+  faces.push({name:'Bottom',cx:rx+B/2,cy:ry+D/2, dims:_rectDims(rx,ry,B,D,b,d)});
   // Left slant rect
   parts.push(_netRect(rx-sl,ry,sl,D,fc('left'),eCol,eW));
-  faces.push({name:'Left',cx:rx-sl/2,cy:ry+D/2});
+  faces.push({name:'Left',cx:rx-sl/2,cy:ry+D/2, dims:_rectDims(rx-sl,ry,sl,D,slW,d)});
   // Right slant rect
   parts.push(_netRect(rx+B,ry,sl,D,fc('right'),eCol,eW));
-  faces.push({name:'Right',cx:rx+B+sl/2,cy:ry+D/2});
-  // Front triangle (above bottom rect)
+  faces.push({name:'Right',cx:rx+B+sl/2,cy:ry+D/2, dims:_rectDims(rx+B,ry,sl,D,slW,d)});
+  // Front triangle (above bottom rect): base along ry, apex at (rx+B/2, ry-H)
   const ftx = rx+B/2, fty = ry;
   parts.push(_netPoly([[rx,ry],[rx+B,ry],[ftx,ry-H]],fc('front'),eCol,eW));
-  faces.push({name:'Front',cx:ftx,cy:ry-H*2/3});
-  // Back triangle (below bottom rect)
+  faces.push({name:'Front',cx:ftx,cy:ry-H*2/3, dims:[
+    {x1:rx, y1:ry, x2:rx+B, y2:ry, nx:0, ny:-1, val:_fD(b)},          // base, offset up → into triangle
+    {x1:ftx, y1:ry, x2:ftx, y2:ry-H, nx:-1, ny:0, val:_fD(h)},        // height, offset left → inside
+  ]});
+  // Back triangle (below bottom rect): base along ry+D, apex at (rx+B/2, ry+D+H)
   parts.push(_netPoly([[rx,ry+D],[rx+B,ry+D],[ftx,ry+D+H]],fc('back'),eCol,eW));
-  faces.push({name:'Back',cx:ftx,cy:ry+D+H*2/3});
+  faces.push({name:'Back',cx:ftx,cy:ry+D+H*2/3, dims:[
+    {x1:rx, y1:ry+D, x2:rx+B, y2:ry+D, nx:0, ny:1, val:_fD(b)},       // base, offset down → into triangle
+    {x1:ftx, y1:ry+D, x2:ftx, y2:ry+D+H, nx:1, ny:0, val:_fD(h)},     // height, offset right → inside
+  ]});
   const totalW = B+2*sl, totalH = H+D+H;
   return {svg:parts.join('\n'), w:totalW, h:totalH, faces};
 }
@@ -573,19 +587,36 @@ function _buildTriPrismNet(b, h, d, col, eCol, eW, sc) {
 function _buildPyramidNet(b, h, col, eCol, eW, sc) {
   const B=b*sc;
   const sl=Math.sqrt((b/2)*(b/2)+h*h)*sc;
+  const slW=Math.sqrt((b/2)*(b/2)+h*h);
   const fc = role => _faceColor(col, role);
   const parts=[], faces=[];
   const bx=sl, by=sl;
   parts.push(_netRect(bx,by,B,B,fc('bottom'),eCol,eW));
-  faces.push({name:'Base',cx:bx+B/2,cy:by+B/2});
+  faces.push({name:'Base',cx:bx+B/2,cy:by+B/2, dims:_rectDims(bx,by,B,B,b,b)});
+  // Back triangle: base at top of base square (y=by), apex above (y=by-sl)
   parts.push(_netPoly([[bx,by],[bx+B,by],[bx+B/2,by-sl]],fc('back'),eCol,eW));
-  faces.push({name:'Back',cx:bx+B/2,cy:by-sl*2/3});
+  faces.push({name:'Back',cx:bx+B/2,cy:by-sl*2/3, dims:[
+    {x1:bx, y1:by, x2:bx+B, y2:by, nx:0, ny:-1, val:_fD(b)},                  // base, offset up → into triangle
+    {x1:bx+B/2, y1:by, x2:bx+B/2, y2:by-sl, nx:-1, ny:0, val:_fD(slW)},       // slant, offset left → inside
+  ]});
+  // Front triangle: base at bottom of base square (y=by+B), apex below (y=by+B+sl)
   parts.push(_netPoly([[bx,by+B],[bx+B,by+B],[bx+B/2,by+B+sl]],fc('front'),eCol,eW));
-  faces.push({name:'Front',cx:bx+B/2,cy:by+B+sl*2/3});
+  faces.push({name:'Front',cx:bx+B/2,cy:by+B+sl*2/3, dims:[
+    {x1:bx, y1:by+B, x2:bx+B, y2:by+B, nx:0, ny:1, val:_fD(b)},               // base, offset down → into triangle
+    {x1:bx+B/2, y1:by+B, x2:bx+B/2, y2:by+B+sl, nx:1, ny:0, val:_fD(slW)},   // slant, offset right → inside
+  ]});
+  // Left triangle: base at left of base square (x=bx), apex to the left (x=bx-sl)
   parts.push(_netPoly([[bx,by],[bx,by+B],[bx-sl,by+B/2]],fc('left'),eCol,eW));
-  faces.push({name:'Left',cx:bx-sl*2/3,cy:by+B/2});
+  faces.push({name:'Left',cx:bx-sl*2/3,cy:by+B/2, dims:[
+    {x1:bx, y1:by, x2:bx, y2:by+B, nx:-1, ny:0, val:_fD(b)},                  // base, offset left → into triangle
+    {x1:bx, y1:by+B/2, x2:bx-sl, y2:by+B/2, nx:0, ny:-1, val:_fD(slW)},       // slant, offset up → inside
+  ]});
+  // Right triangle: base at right of base square (x=bx+B), apex to the right (x=bx+B+sl)
   parts.push(_netPoly([[bx+B,by],[bx+B,by+B],[bx+B+sl,by+B/2]],fc('right'),eCol,eW));
-  faces.push({name:'Right',cx:bx+B+sl*2/3,cy:by+B/2});
+  faces.push({name:'Right',cx:bx+B+sl*2/3,cy:by+B/2, dims:[
+    {x1:bx+B, y1:by, x2:bx+B, y2:by+B, nx:1, ny:0, val:_fD(b)},               // base, offset right → into triangle
+    {x1:bx+B, y1:by+B/2, x2:bx+B+sl, y2:by+B/2, nx:0, ny:1, val:_fD(slW)},   // slant, offset down → inside
+  ]});
   return {svg:parts.join('\n'), w:2*sl+B, h:2*sl+B, faces};
 }
 
@@ -601,7 +632,7 @@ function _buildHexPrismNet(r, h, col, eCol, eW, sc) {
     const x=i*S;
     const role = i===0||i===5?'front':i===1||i===4?'left':'back';
     parts.push(_netRect(x,rowY,S,H,fc(role),eCol,eW));
-    faces.push({name:`F${i+1}`,cx:x+S/2,cy:rowY+H/2});
+    faces.push({name:`F${i+1}`,cx:x+S/2,cy:rowY+H/2, dims:_rectDims(x,rowY,S,H,r,h)});
   }
   // Hexagon helper: flat-top, apothem ry, centered at cx,cy
   const hexPts = (cx,cy) => {
@@ -611,10 +642,14 @@ function _buildHexPrismNet(r, h, col, eCol, eW, sc) {
   };
   // Top hex above rect 0
   parts.push(_netPoly(hexPts(S/2, rowY-ry), fc('top'), eCol, eW));
-  faces.push({name:'Top', cx:S/2, cy:rowY-ry});
+  faces.push({name:'Top', cx:S/2, cy:rowY-ry, dims:[
+    {x1:S/2, y1:rowY-ry, x2:S/2+R, y2:rowY-ry, nx:0, ny:-1, val:_fD(r)},
+  ]});
   // Bottom hex below rect 0
   parts.push(_netPoly(hexPts(S/2, rowY+H+ry), fc('bottom'), eCol, eW));
-  faces.push({name:'Bottom', cx:S/2, cy:rowY+H+ry});
+  faces.push({name:'Bottom', cx:S/2, cy:rowY+H+ry, dims:[
+    {x1:S/2, y1:rowY+H+ry, x2:S/2+R, y2:rowY+H+ry, nx:0, ny:1, val:_fD(r)},
+  ]});
   const totalW=SIDES*S, totalH=rowY+H+2*ry;
   return {svg:parts.join('\n'), w:totalW, h:totalH, faces};
 }
@@ -627,14 +662,18 @@ function _buildCylinderNet(r, h, col, eCol, eW, sc) {
   // Lateral rectangle — centered horizontally
   const rx = R;
   parts.push(_netRect(rx,R,circ,H,fc('front'),eCol,eW));
-  faces.push({name:'Side',cx:rx+circ/2,cy:R+H/2});
+  faces.push({name:'Side',cx:rx+circ/2,cy:R+H/2, dims:_rectDims(rx,R,circ,H, Math.round(2*Math.PI*r*100)/100, h)});
   // Top circle centered above rectangle
   const tcx = rx + circ/2;
   parts.push(`<circle cx="${fmt(tcx)}" cy="${fmt(R)}" r="${fmt(R)}" fill="${fc('top')}" stroke="${eCol}" stroke-width="${eW}"/>`);
-  faces.push({name:'Top',cx:tcx,cy:R});
+  faces.push({name:'Top',cx:tcx,cy:R, dims:[
+    {x1:tcx, y1:R, x2:tcx+R, y2:R, nx:0, ny:-1, val:_fD(r)},
+  ]});
   // Bottom circle centered below rectangle
   parts.push(`<circle cx="${fmt(tcx)}" cy="${fmt(R+H+R)}" r="${fmt(R)}" fill="${fc('bottom')}" stroke="${eCol}" stroke-width="${eW}"/>`);
-  faces.push({name:'Bottom',cx:tcx,cy:R+H+R});
+  faces.push({name:'Bottom',cx:tcx,cy:R+H+R, dims:[
+    {x1:tcx, y1:R+H+R, x2:tcx+R, y2:R+H+R, nx:0, ny:1, val:_fD(r)},
+  ]});
   const totalW = rx + circ + rx;
   return {svg:parts.join('\n'), w:totalW, h:2*R+H, faces};
 }
@@ -642,6 +681,7 @@ function _buildCylinderNet(r, h, col, eCol, eW, sc) {
 function _buildConeNet(r, h, col, eCol, eW, sc) {
   const R=r*sc, H=h*sc;
   const slant=Math.sqrt(R*R+H*H);
+  const slantW=Math.sqrt(r*r+h*h);
   const angle=R/slant;  // arc angle in radians (= circumference / slant)
   const arcAngle=2*Math.PI*angle;
   const fc = role => _faceColor(col, role);
@@ -654,11 +694,16 @@ function _buildConeNet(r, h, col, eCol, eW, sc) {
   const largeArc=arcAngle>Math.PI?1:0;
   parts.push(`<path d="M${fmt(cx)},${fmt(cy)} L${fmt(x1)},${fmt(y1)} A${fmt(slant)},${fmt(slant)} 0 ${largeArc},1 ${fmt(x2)},${fmt(y2)} Z" fill="${fc('front')}" stroke="${eCol}" stroke-width="${eW}"/>`);
   const midA=(a1+a2)/2;
-  faces.push({name:'Lateral',cx:cx+slant*0.65*Math.cos(midA),cy:cy+slant*0.65*Math.sin(midA)});
+  // Slant arrow along the left straight edge (from apex straight up)
+  faces.push({name:'Lateral',cx:cx+slant*0.65*Math.cos(midA),cy:cy+slant*0.65*Math.sin(midA), dims:[
+    {x1:cx, y1:cy, x2:cx, y2:cy-slant, nx:-1, ny:0, val:_fD(slantW)},
+  ]});
   // Base circle below
   const bcy=slant*2+R+4;
   parts.push(`<circle cx="${fmt(cx)}" cy="${fmt(bcy)}" r="${fmt(R)}" fill="${fc('bottom')}" stroke="${eCol}" stroke-width="${eW}"/>`);
-  faces.push({name:'Base',cx,cy:bcy});
+  faces.push({name:'Base',cx,cy:bcy, dims:[
+    {x1:cx, y1:bcy, x2:cx+R, y2:bcy, nx:0, ny:1, val:_fD(r)},
+  ]});
   return {svg:parts.join('\n'), w:2*slant, h:bcy+R, faces};
 }
 
@@ -760,14 +805,16 @@ function generateGeometry3D() {
   const flBg      = val('g3d-fl-bg')     || '';
   const flBgOp    = num('g3d-fl-bg-op')  != null ? (num('g3d-fl-bg-op')||0) : 0.6;
 
-  // Net face dimension label options
+  // Net face dimension arrow options
   const nflEnabled = chk('g3d-nfl-enable');
-  const nflColor   = val('g3d-nfl-color') || '#333333';
-  const nflSize    = Math.max(6, num('g3d-nfl-size') || 11);
+  const nflColor   = val('g3d-nfl-color') || '#cc3300';
+  const nflOff     = Math.max(4,   num('g3d-nfl-off') || 18);
+  const nflAw      = Math.max(0.5, num('g3d-nfl-aw')  || 1.2);
+  const nflAs      = Math.max(2,   num('g3d-nfl-as')  || 4);
+  const nflFs      = Math.max(6,   num('g3d-nfl-fs')  || 11);
   const nflBold    = chk('g3d-nfl-bold');
   const nflItal    = chk('g3d-nfl-ital');
   const nflFont    = val('g3d-nfl-font')  || 'Arial,sans-serif';
-  const nflDy      = num('g3d-nfl-dy')    || 0;
 
   const rotHDeg = num('g3d-rot-h') || 0;
   const rotVDeg = num('g3d-rot-v') || 0;
@@ -983,24 +1030,26 @@ function generateGeometry3D() {
     });
   }
 
-  // ── Net face dimension labels ────────────────────────────────────────────
+  // ── Net face dimension arrows ────────────────────────────────────────────
   let netDimLabelParts = '';
   if (nflEnabled && netResult && showNet) {
-    const nflDims = {w, h, d, b, r, s};
     netResult.faces.forEach((f, idx) => {
       if (!chk(`g3d-nfl-en-${idx}`)) return;
-      const customText = val(`g3d-nfl-text-${idx}`);
-      // blank input → auto-compute with live dimension values
-      const txt = customText
-        ? customText
-        : _g3dNetFaceDimText(shape, f.name, nflDims);
-      if (!txt) return;
+      if (!f.dims || f.dims.length === 0) return;
       const usePerColor = chk(`g3d-nfl-use-color-${idx}`);
       const faceColor = usePerColor ? (val(`g3d-nfl-color-${idx}`) || nflColor) : nflColor;
-      const fw = nflBold ? 'bold' : 'normal';
-      const fi = nflItal ? 'italic' : 'normal';
-      const lx = f.cx, ly = f.cy + nflDy;
-      netDimLabelParts += `<text x="${fmt(lx)}" y="${fmt(ly)}" text-anchor="middle" dominant-baseline="central" font-family="${escXml(nflFont)}" font-size="${nflSize}" font-weight="${fw}" font-style="${fi}" fill="${faceColor}">${escXml(txt)}</text>\n`;
+      const nflMid = 'g3d_arr_' + faceColor.replace('#','');
+      if (!markers.has(faceColor)) markers.set(faceColor, { id: nflMid, arrowSz: nflAs });
+      const mid = markers.get(faceColor).id;
+      f.dims.forEach(dim => {
+        netDimLabelParts += _dim2d(dim.x1, dim.y1, dim.x2, dim.y2, dim.nx, dim.ny, dim.val, {
+          arrowColor: faceColor,
+          arrowW: nflAw, fontSize: nflFs, fontFamily: nflFont,
+          fontBold: nflBold, fontItalic: nflItal,
+          offset: nflOff, labelOffset: null,
+          showTicks: false, mid,
+        });
+      });
     });
   }
 
@@ -1121,22 +1170,12 @@ function _g3dFillNetFaceInputs(shape) {
   const nr = nb ? nb() : null;
   if (!nr) { wrap.innerHTML = '<em style="font-size:11px;color:var(--muted)">No net for sphere</em>'; return; }
 
-  // Read current param values from DOM (just re-populated by _g3dFillDimPanel)
-  const dims = {
-    w:num('g3d-w')||3, h:num('g3d-h')||3, d:num('g3d-d')||2,
-    b:num('g3d-b')||2, r:num('g3d-r')||1.2, s:num('g3d-s')||2,
-  };
-
   wrap.innerHTML = nr.faces.map((f,i) => {
-    const autoText = _g3dNetFaceDimText(shape, f.name, dims);
     return `<div class="g3d-nfl-row">
   <div class="g3d-nfl-head">
     <input type="checkbox" id="g3d-nfl-en-${i}" checked>
     <label for="g3d-nfl-en-${i}" class="g3d-nfl-name">${f.name}</label>
-  </div>
-  <div class="g3d-nfl-body">
-    <input type="text" id="g3d-nfl-text-${i}" placeholder="${escXml(autoText)}" maxlength="24" class="g3d-nfl-txt" title="Leave blank for auto: ${escXml(autoText)}">
-    <input type="color" id="g3d-nfl-color-${i}" value="#333333" title="Per-face colour override">
+    <input type="color" id="g3d-nfl-color-${i}" value="#cc3300" title="Per-face colour override">
     <label class="g3d-nfl-use-color-lbl"><input type="checkbox" id="g3d-nfl-use-color-${i}"> use</label>
   </div>
 </div>`;
@@ -1289,16 +1328,20 @@ function buildGeometry3DUI() {
   <div id="g3d-fl-face-inputs"></div>
 </div>
 
-<div class="g3d-dim-sub-head" style="margin-top:10px">Face Dimension Labels</div>
+<div class="g3d-dim-sub-head" style="margin-top:10px">Face Dimension Arrows</div>
 <div class="check-row" style="margin-bottom:6px">
   <input type="checkbox" id="g3d-nfl-enable">
-  <label for="g3d-nfl-enable">Show dimension labels on faces</label>
+  <label for="g3d-nfl-enable">Show dimension arrows on faces</label>
 </div>
 <div id="g3d-nfl-body" style="display:none">
   <div class="row3" style="margin-bottom:4px">
-    <div><label>Color</label><input type="color" id="g3d-nfl-color" value="#333333"></div>
-    <div><label>Size</label><input type="number" id="g3d-nfl-size" value="11" min="6" max="40" step="1"></div>
-    <div><label>Y offset</label><input type="number" id="g3d-nfl-dy" value="0" min="-80" max="80" step="1" title="Vertical offset from face centre (px)"></div>
+    <div><label>Color</label><input type="color" id="g3d-nfl-color" value="#cc3300"></div>
+    <div><label>Offset (px)</label><input type="number" id="g3d-nfl-off" value="18" min="4" max="80" step="2"></div>
+    <div><label>Font size</label><input type="number" id="g3d-nfl-fs" value="11" min="6" max="30" step="1"></div>
+  </div>
+  <div class="row2" style="margin-bottom:4px">
+    <div><label>Arrow width</label><input type="number" id="g3d-nfl-aw" value="1.2" min="0.5" max="6" step="0.5"></div>
+    <div><label>Head size</label><input type="number" id="g3d-nfl-as" value="4" min="2" max="12" step="0.5"></div>
   </div>
   <div class="row2" style="margin-bottom:4px">
     <div><label>Font</label><select id="g3d-nfl-font">${netFontOptions}</select></div>
@@ -1307,7 +1350,7 @@ function buildGeometry3DUI() {
       <div class="check-row"><input type="checkbox" id="g3d-nfl-ital"><label for="g3d-nfl-ital">Italic</label></div>
     </div>
   </div>
-  <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Per-face text (leave blank for auto) + optional color override:</div>
+  <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Per-face enable + optional color override:</div>
   <div id="g3d-nfl-face-inputs"></div>
 </div>`;
 
@@ -1515,8 +1558,8 @@ function _g3dWireUI() {
     'g3d-net-mode','g3d-net-gap','g3d-net-edge-color','g3d-net-edge-w',
     'g3d-fl-enable','g3d-fl-on3d','g3d-fl-color','g3d-fl-size',
     'g3d-fl-bg','g3d-fl-bg-op','g3d-fl-font','g3d-fl-bold','g3d-fl-ital',
-    'g3d-nfl-enable','g3d-nfl-color','g3d-nfl-size','g3d-nfl-dy',
-    'g3d-nfl-font','g3d-nfl-bold','g3d-nfl-ital',
+    'g3d-nfl-enable','g3d-nfl-color','g3d-nfl-off','g3d-nfl-fs',
+    'g3d-nfl-aw','g3d-nfl-as','g3d-nfl-font','g3d-nfl-bold','g3d-nfl-ital',
   ].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
