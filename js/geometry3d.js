@@ -188,6 +188,14 @@ function _buildCuboid(w, h, d, col, eCol, eW, showHidden, proj) {
       h: { p1:[ hw,-hh, hd], p2:[hw, hh, hd], norm:[1, 0, 0.3] },
       d: { p1:[ hw,-hh, hd], p2:[hw,-hh,-hd], norm:[1,-0.6, 0] },
     },
+    faces: [
+      { name:'Top',    c:[0,   hh, 0 ], role:'top'    },
+      { name:'Front',  c:[0,   0,  hd], role:'front'  },
+      { name:'Right',  c:[hw,  0,  0 ], role:'right'  },
+      { name:'Left',   c:[-hw, 0,  0 ], role:'left'   },
+      { name:'Bottom', c:[0,  -hh, 0 ], role:'bottom' },
+      { name:'Back',   c:[0,   0, -hd], role:'back'   },
+    ],
   };
 }
 
@@ -328,6 +336,7 @@ function _buildTriPrism(b, h, d, col, eCol, eW, showHidden, proj) {
     [[BBL,BBR],[BBL,BAP]].forEach(([a,bv]) =>
       s += _seg(...proj(a), ...proj(bv), eCol, eW*0.55, '4,3'));
   faces.forEach(f => s += _edgeFace(f.v, eCol, eW, proj));
+  const sl = Math.sqrt((b/2)*(b/2) + h*h);  // slant side length
   return {
     svg: s,
     dims: {
@@ -335,6 +344,14 @@ function _buildTriPrism(b, h, d, col, eCol, eW, showHidden, proj) {
       h: { p1:[   0,-h/2, d/2], p2:[0,   h/2, d/2],  norm:[-1, 0, 0.5] },
       d: { p1:[ b/2,-h/2, d/2], p2:[ b/2,-h/2,-d/2], norm:[1,-0.6, 0]  },
     },
+    faces: [
+      { name:'Front',  c:[0, 0,  d/2], role:'front'  },
+      { name:'Back',   c:[0, 0, -d/2], role:'back'   },
+      { name:'Bottom', c:[0, -h/2, 0], role:'bottom' },
+      { name:'Left',   c:[-b/4, h/4, 0], role:'left' },
+      { name:'Right',  c:[ b/4, h/4, 0], role:'right' },
+    ],
+    slant: sl,
   };
 }
 
@@ -356,12 +373,21 @@ function _buildPyramid(b, h, col, eCol, eW, showHidden, proj) {
     [[BBL,BBR],[BBL,BFL],[BBL,AP]].forEach(([a,bv]) =>
       s += _seg(...proj(a), ...proj(bv), eCol, eW*0.55, '4,3'));
   faces.forEach(f => s += _edgeFace(f.v, eCol, eW, proj));
+  const pySlant = Math.sqrt((b/2)*(b/2) + h*h);
   return {
     svg: s,
     dims: {
       b: { p1:[-hb,botY, hb], p2:[ hb,botY, hb], norm:[0,-1, 0.6] },
       h: { p1:[ hb,botY, hb], p2:[0,  topY, 0],  norm:[1, 0, 0.3] },
     },
+    faces: [
+      { name:'Base',  c:[0, botY, 0],       role:'bottom' },
+      { name:'Front', c:[0, h/2,  hb/2],    role:'front'  },
+      { name:'Back',  c:[0, h/2, -hb/2],    role:'back'   },
+      { name:'Left',  c:[-hb/2, h/2, 0],    role:'left'   },
+      { name:'Right', c:[ hb/2, h/2, 0],    role:'right'  },
+    ],
+    slant: pySlant,
   };
 }
 
@@ -392,13 +418,173 @@ function _buildHexPrism(r, h, col, eCol, eW, showHidden, proj, rotH) {
   let s = '';
   hexFaces.forEach(f => s += _fillFace(f.v, col, f.role, proj));
   hexFaces.forEach(f => s += _edgeFace(f.v, eCol, eW, proj));
+  const hexFaceCenters = [];
+  for (let i = 0; i < SIDES; i++) {
+    const a = Math.PI/6 + Math.PI*2*(i+0.5)/SIDES;
+    hexFaceCenters.push({ name:`Face ${i+1}`, c:[r*0.85*Math.cos(a), 0, r*0.85*Math.sin(a)], role:'front' });
+  }
   return {
     svg: s,
     dims: {
       r: { p1:[0,topY,0], p2:[r,topY,0], norm:[0,1,0] },
       h: { p1:[r,botY,0], p2:[r,topY,0], norm:[1,0,0] },
     },
+    faces: [
+      { name:'Top',    c:[0, topY, 0], role:'top'    },
+      { name:'Bottom', c:[0, botY, 0], role:'bottom' },
+      ...hexFaceCenters,
+    ],
   };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Net builders  —  flat 2-D unfolded views
+   Each returns { svg, w, h, faces:[{name, cx, cy}] }
+   sc = pixels per world unit
+   ══════════════════════════════════════════════════════════════════════════ */
+
+function _netRect(x, y, fw, fh, fill, stroke, sw) {
+  return `<rect x="${fmt(x)}" y="${fmt(y)}" width="${fmt(fw)}" height="${fmt(fh)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/>`;
+}
+function _netPoly(pts, fill, stroke, sw) {
+  const d = pts.map(([x,y],i)=>`${i?'L':'M'}${fmt(x)},${fmt(y)}`).join('')+'Z';
+  return `<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/>`;
+}
+
+function _buildCuboidNet(w, h, d, col, eCol, eW, sc) {
+  const W=w*sc, H=h*sc, D=d*sc;
+  const fc = role => _faceColor(col, role);
+  const parts=[], faces=[];
+  const addR = (x,y,fw,fh,role,name) => {
+    parts.push(_netRect(x,y,fw,fh,fc(role),eCol,eW));
+    faces.push({name, cx:x+fw/2, cy:y+fh/2});
+  };
+  addR(D,       0,     W, D,  'top',    'Top');
+  addR(0,       D,     D, H,  'left',   'Left');
+  addR(D,       D,     W, H,  'front',  'Front');
+  addR(D+W,     D,     D, H,  'right',  'Right');
+  addR(D+W+D,   D,     W, H,  'back',   'Back');
+  addR(D,       D+H,   W, D,  'bottom', 'Bottom');
+  return {svg:parts.join('\n'), w:D+W+D+W, h:D+H+D, faces};
+}
+
+function _buildTriPrismNet(b, h, d, col, eCol, eW, sc) {
+  const B=b*sc, H=h*sc, D=d*sc;
+  const sl = Math.sqrt((b/2)*(b/2)+h*h)*sc;
+  const fc = role => _faceColor(col, role);
+  const parts=[], faces=[];
+  // Layout: 3 rects in a row; front & back triangles attached to bottom rect
+  const rx = sl, ry = H;      // bottom rect top-left
+  // Bottom rect
+  parts.push(_netRect(rx,ry,B,D,fc('bottom'),eCol,eW));
+  faces.push({name:'Bottom',cx:rx+B/2,cy:ry+D/2});
+  // Left slant rect
+  parts.push(_netRect(rx-sl,ry,sl,D,fc('left'),eCol,eW));
+  faces.push({name:'Left',cx:rx-sl/2,cy:ry+D/2});
+  // Right slant rect
+  parts.push(_netRect(rx+B,ry,sl,D,fc('right'),eCol,eW));
+  faces.push({name:'Right',cx:rx+B+sl/2,cy:ry+D/2});
+  // Front triangle (above bottom rect)
+  const ftx = rx+B/2, fty = ry;
+  parts.push(_netPoly([[rx,ry],[rx+B,ry],[ftx,ry-H]],fc('front'),eCol,eW));
+  faces.push({name:'Front',cx:ftx,cy:ry-H*2/3});
+  // Back triangle (below bottom rect)
+  parts.push(_netPoly([[rx,ry+D],[rx+B,ry+D],[ftx,ry+D+H]],fc('back'),eCol,eW));
+  faces.push({name:'Back',cx:ftx,cy:ry+D+H*2/3});
+  const totalW = B+2*sl, totalH = H+D+H;
+  return {svg:parts.join('\n'), w:totalW, h:totalH, faces};
+}
+
+function _buildPyramidNet(b, h, col, eCol, eW, sc) {
+  const B=b*sc;
+  const sl=Math.sqrt((b/2)*(b/2)+h*h)*sc;
+  const fc = role => _faceColor(col, role);
+  const parts=[], faces=[];
+  const bx=sl, by=sl;
+  parts.push(_netRect(bx,by,B,B,fc('bottom'),eCol,eW));
+  faces.push({name:'Base',cx:bx+B/2,cy:by+B/2});
+  parts.push(_netPoly([[bx,by],[bx+B,by],[bx+B/2,by-sl]],fc('back'),eCol,eW));
+  faces.push({name:'Back',cx:bx+B/2,cy:by-sl*2/3});
+  parts.push(_netPoly([[bx,by+B],[bx+B,by+B],[bx+B/2,by+B+sl]],fc('front'),eCol,eW));
+  faces.push({name:'Front',cx:bx+B/2,cy:by+B+sl*2/3});
+  parts.push(_netPoly([[bx,by],[bx,by+B],[bx-sl,by+B/2]],fc('left'),eCol,eW));
+  faces.push({name:'Left',cx:bx-sl*2/3,cy:by+B/2});
+  parts.push(_netPoly([[bx+B,by],[bx+B,by+B],[bx+B+sl,by+B/2]],fc('right'),eCol,eW));
+  faces.push({name:'Right',cx:bx+B+sl*2/3,cy:by+B/2});
+  return {svg:parts.join('\n'), w:2*sl+B, h:2*sl+B, faces};
+}
+
+function _buildHexPrismNet(r, h, col, eCol, eW, sc) {
+  const R=r*sc, H=h*sc;
+  const S=R, SIDES=6;
+  const fc = role => _faceColor(col, role);
+  const parts=[], faces=[];
+  // 6 rects in a row: each S wide, H tall
+  const ry=R*Math.sqrt(3)/2;  // hex apothem
+  const rowY=ry;
+  for (let i=0;i<SIDES;i++) {
+    const x=i*S;
+    const role = i===0||i===5?'front':i===1||i===4?'left':'back';
+    parts.push(_netRect(x,rowY,S,H,fc(role),eCol,eW));
+    faces.push({name:`F${i+1}`,cx:x+S/2,cy:rowY+H/2});
+  }
+  // Hexagon helper: flat-top, apothem ry, centered at cx,cy
+  const hexPts = (cx,cy) => {
+    const pts=[];
+    for (let i=0;i<SIDES;i++){const a=Math.PI/6+Math.PI*2*i/SIDES;pts.push([cx+R*Math.cos(a),cy+R*Math.sin(a)]);}
+    return pts;
+  };
+  // Top hex above rect 0
+  parts.push(_netPoly(hexPts(S/2, rowY-ry), fc('top'), eCol, eW));
+  faces.push({name:'Top', cx:S/2, cy:rowY-ry});
+  // Bottom hex below rect 0
+  parts.push(_netPoly(hexPts(S/2, rowY+H+ry), fc('bottom'), eCol, eW));
+  faces.push({name:'Bottom', cx:S/2, cy:rowY+H+ry});
+  const totalW=SIDES*S, totalH=rowY+H+2*ry;
+  return {svg:parts.join('\n'), w:totalW, h:totalH, faces};
+}
+
+function _buildCylinderNet(r, h, col, eCol, eW, sc) {
+  const R=r*sc, H=h*sc;
+  const circ=2*Math.PI*R;
+  const fc = role => _faceColor(col, role);
+  const parts=[], faces=[];
+  // Lateral rectangle — centered horizontally
+  const rx = R;
+  parts.push(_netRect(rx,R,circ,H,fc('front'),eCol,eW));
+  faces.push({name:'Side',cx:rx+circ/2,cy:R+H/2});
+  // Top circle centered above rectangle
+  const tcx = rx + circ/2;
+  parts.push(`<circle cx="${fmt(tcx)}" cy="${fmt(R)}" r="${fmt(R)}" fill="${fc('top')}" stroke="${eCol}" stroke-width="${eW}"/>`);
+  faces.push({name:'Top',cx:tcx,cy:R});
+  // Bottom circle centered below rectangle
+  parts.push(`<circle cx="${fmt(tcx)}" cy="${fmt(R+H+R)}" r="${fmt(R)}" fill="${fc('bottom')}" stroke="${eCol}" stroke-width="${eW}"/>`);
+  faces.push({name:'Bottom',cx:tcx,cy:R+H+R});
+  const totalW = rx + circ + rx;
+  return {svg:parts.join('\n'), w:totalW, h:2*R+H, faces};
+}
+
+function _buildConeNet(r, h, col, eCol, eW, sc) {
+  const R=r*sc, H=h*sc;
+  const slant=Math.sqrt(R*R+H*H);
+  const angle=R/slant;  // arc angle in radians (= circumference / slant)
+  const arcAngle=2*Math.PI*angle;
+  const fc = role => _faceColor(col, role);
+  const parts=[], faces=[];
+  // Sector centered at (slant,slant)
+  const cx=slant, cy=slant;
+  const a1=-Math.PI/2, a2=a1+arcAngle;
+  const x1=cx+slant*Math.cos(a1), y1=cy+slant*Math.sin(a1);
+  const x2=cx+slant*Math.cos(a2), y2=cy+slant*Math.sin(a2);
+  const largeArc=arcAngle>Math.PI?1:0;
+  parts.push(`<path d="M${fmt(cx)},${fmt(cy)} L${fmt(x1)},${fmt(y1)} A${fmt(slant)},${fmt(slant)} 0 ${largeArc},1 ${fmt(x2)},${fmt(y2)} Z" fill="${fc('front')}" stroke="${eCol}" stroke-width="${eW}"/>`);
+  const midA=(a1+a2)/2;
+  faces.push({name:'Lateral',cx:cx+slant*0.65*Math.cos(midA),cy:cy+slant*0.65*Math.sin(midA)});
+  // Base circle below
+  const bcy=slant*2+R+4;
+  parts.push(`<circle cx="${fmt(cx)}" cy="${fmt(bcy)}" r="${fmt(R)}" fill="${fc('bottom')}" stroke="${eCol}" stroke-width="${eW}"/>`);
+  faces.push({name:'Base',cx,cy:bcy});
+  return {svg:parts.join('\n'), w:2*slant, h:bcy+R, faces};
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -472,15 +658,32 @@ const _G3D_SCHEMES = [
    ══════════════════════════════════════════════════════════════════════════ */
 
 function generateGeometry3D() {
-  const shape  = val('g3d-shape')      || 'cuboid';
-  const col    = val('g3d-color')      || '#4a90d9';
-  const eCol   = val('g3d-edge-color') || '#1a3a5a';
-  const eW     = Math.max(0.5, num('g3d-edge-w')  || 1.5);
-  const hidden = chk('g3d-hidden');
-  const cW     = Math.max(100, int('g3d-canvas-w') || 420);
-  const cH     = Math.max(100, int('g3d-canvas-h') || 360);
-  const bgNone = chk('g3d-bg-none');
-  const bgCol  = bgNone ? 'none' : (val('g3d-bg') || '#ffffff');
+  const shape   = val('g3d-shape')      || 'cuboid';
+  const col     = val('g3d-color')      || '#4a90d9';
+  const eCol    = val('g3d-edge-color') || '#1a3a5a';
+  const eW      = Math.max(0.5, num('g3d-edge-w')  || 1.5);
+  const hidden  = chk('g3d-hidden');
+  const cW      = Math.max(100, int('g3d-canvas-w') || 420);
+  const cH      = Math.max(100, int('g3d-canvas-h') || 360);
+  const bgNone  = chk('g3d-bg-none');
+  const bgCol   = bgNone ? 'none' : (val('g3d-bg') || '#ffffff');
+
+  // Net options
+  const netMode   = val('g3d-net-mode') || '3d';  // '3d' | 'both' | 'net'
+  const netGap    = Math.max(0, num('g3d-net-gap') || 30);
+  const netECol   = val('g3d-net-edge-color') || eCol;
+  const netEW     = Math.max(0.5, num('g3d-net-edge-w') || eW);
+
+  // Face label options
+  const flEnabled = chk('g3d-fl-enable');
+  const flOn3d    = flEnabled && chk('g3d-fl-on3d') && (netMode === 'both' || netMode === '3d');
+  const flColor   = val('g3d-fl-color')  || '#1a1a1a';
+  const flSize    = Math.max(6, num('g3d-fl-size') || 13);
+  const flBold    = chk('g3d-fl-bold');
+  const flItal    = chk('g3d-fl-ital');
+  const flFont    = val('g3d-fl-font')   || 'Arial,sans-serif';
+  const flBg      = val('g3d-fl-bg')     || '';
+  const flBgOp    = num('g3d-fl-bg-op')  != null ? (num('g3d-fl-bg-op')||0) : 0.6;
 
   const rotHDeg = num('g3d-rot-h') || 0;
   const rotVDeg = num('g3d-rot-v') || 0;
@@ -508,14 +711,12 @@ function generateGeometry3D() {
   }[shape] || 4;
 
   const sc = Math.min(cW, cH) * 0.46 / maxDim;
-  // Bounding box tracker — wraps proj so every rendered point is recorded
-  let _bx0 = Infinity, _by0 = Infinity, _bx1 = -Infinity, _by1 = -Infinity;
-  const _track = (x, y, r = 0) => {
-    _bx0 = Math.min(_bx0, x-r); _by0 = Math.min(_by0, y-r);
-    _bx1 = Math.max(_bx1, x+r); _by1 = Math.max(_by1, y+r);
-  };
+
+  // ── Build 3D shape ──────────────────────────────────────────────────────
+  let _bx0=Infinity,_by0=Infinity,_bx1=-Infinity,_by1=-Infinity;
+  const _track = (x,y) => { _bx0=Math.min(_bx0,x);_by0=Math.min(_by0,y);_bx1=Math.max(_bx1,x);_by1=Math.max(_by1,y); };
   const baseProj = _makeProj(rotH, rotV, rotZ, sc, cW/2, cH/2);
-  const proj = pt => { const r = baseProj(pt); _track(r[0], r[1]); return r; };
+  const proj = pt => { const r=baseProj(pt); _track(r[0],r[1]); return r; };
 
   let result;
   if      (shape==='cube')     result = _buildCuboid(s,s,s, col,eCol,eW,hidden,proj);
@@ -528,9 +729,9 @@ function generateGeometry3D() {
   else if (shape==='hexprism') result = _buildHexPrism(r,h, col,eCol,eW,hidden,proj,rotH);
   else return errorSVG('Unknown shape: ' + shape);
 
-  // Per-dimension annotations
+  // ── Per-dimension annotations ────────────────────────────────────────────
   const dimMeta  = _G3D_DIM_META[shape] || [];
-  const markers  = new Map();   // color → { id, arrowSz }
+  const markers  = new Map();
   const annParts = [];
 
   for (const dm of dimMeta) {
@@ -556,29 +757,155 @@ function generateGeometry3D() {
     const dTickW    = Math.max(0.3, num(`g3d-dim-${shape}-${dm.key}-tick-w`) || 1);
     const dMid      = 'g3d_arr_' + dColor.replace('#','');
     if (!markers.has(dColor)) markers.set(dColor, { id: dMid, arrowSz: dAs });
-    const dOpts = {
+    annParts.push(_dim(dd.p1, dd.p2, dd.norm, lbl, {
       arrowColor: dColor, labelColor: dLblColor,
       arrowW: dAw, fontSize: dFs, fontFamily: dFf,
       fontBold: dBold, fontItalic: dItal,
       offset: dOff, labelOffset: dLblOff, labelPos: dLblPos, labelRot: dLblRot,
       showTicks: dTicks, tickW: dTickW, mid: dMid,
-    };
-    annParts.push(_dim(dd.p1, dd.p2, dd.norm, lbl, dOpts, proj, _track));
+    }, proj, _track));
   }
+
+  // ── Resolve face label texts ─────────────────────────────────────────────
+  // Build a name→index map from the net so 3D face labels use the same letter as the net
+  const AUTO_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let _netFaceIndexMap = null;
+  const _getFaceIndexByName = (name) => {
+    if (!_netFaceIndexMap) return -1;
+    return _netFaceIndexMap.get(name) ?? -1;
+  };
+
+  const _getFaceLabelText = (idx, defaultName) => {
+    if (!flEnabled) return '';
+    const custom = val(`g3d-fl-face-${idx}`);
+    if (custom !== null && custom !== undefined && custom !== '') return custom;
+    return AUTO_LETTERS[idx] || defaultName;
+  };
+  const _getFaceLabelTextByName = (name) => {
+    if (!flEnabled) return '';
+    const idx = _getFaceIndexByName(name);
+    if (idx < 0) return '';
+    return _getFaceLabelText(idx, name);
+  };
+
+  // ── Face labels helper ───────────────────────────────────────────────────
+  const _renderFaceLabel = (lx, ly, text) => {
+    if (!text) return '';
+    const fw = flBold ? 'bold' : 'normal';
+    const fi = flItal ? 'italic' : 'normal';
+    let s = '';
+    if (flBg) {
+      const tw = text.length * flSize * 0.32 + 4;
+      const th = flSize * 0.65;
+      s += `<rect x="${fmt(lx-tw/2)}" y="${fmt(ly-th/2)}" width="${fmt(tw)}" height="${fmt(th)}" rx="2" fill="${flBg}" opacity="${fmt(flBgOp)}"/>`;
+    }
+    s += `<text x="${fmt(lx)}" y="${fmt(ly)}" text-anchor="middle" dominant-baseline="central" font-family="${escXml(flFont)}" font-size="${flSize}" font-weight="${fw}" font-style="${fi}" fill="${flColor}">${escXml(text)}</text>`;
+    return s;
+  };
+
+  // ── Face labels on 3D shape ──────────────────────────────────────────────
+  // (built after net so _netFaceIndexMap is populated — but we defer to after net build)
+  let face3dParts = '';
 
   const defsHTML = [...markers.entries()].map(([color, {id, arrowSz}]) => _arrowDef(id, color, arrowSz)).join('\n');
 
-  // Compute tight bounding box from all tracked points + padding
-  const PAD = 10;
-  const vx = isFinite(_bx0) ? Math.floor(_bx0) - PAD : 0;
-  const vy = isFinite(_by0) ? Math.floor(_by0) - PAD : 0;
-  const vw = isFinite(_bx1) ? Math.ceil(_bx1 - _bx0) + 2*PAD : cW;
-  const vh = isFinite(_by1) ? Math.ceil(_by1 - _by0) + 2*PAD : cH;
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vx} ${vy} ${vw} ${vh}" width="${vw}" height="${vh}">`;
-  if (!bgNone) svg += `\n<rect x="${vx}" y="${vy}" width="${vw}" height="${vh}" fill="${bgCol}" rx="2"/>`;
+  // ── Build net ────────────────────────────────────────────────────────────
+  let netResult = null;
+  const showNet = netMode === 'both' || netMode === 'net';
+  const netSc = sc * 0.95;
+  const usedNetECol = netECol, usedNetEW = netEW;
+  if (showNet || flOn3d) {
+    // Build net even when not displaying it, to get face index map for 3D labels
+    if      (shape==='cube')     netResult = _buildCuboidNet(s,s,s, col,usedNetECol,usedNetEW,netSc);
+    else if (shape==='cuboid')   netResult = _buildCuboidNet(w,h,d, col,usedNetECol,usedNetEW,netSc);
+    else if (shape==='cylinder') netResult = _buildCylinderNet(r,h, col,usedNetECol,usedNetEW,netSc);
+    else if (shape==='cone')     netResult = _buildConeNet(r,h,     col,usedNetECol,usedNetEW,netSc);
+    else if (shape==='triprism') netResult = _buildTriPrismNet(b,h,d,col,usedNetECol,usedNetEW,netSc);
+    else if (shape==='pyramid')  netResult = _buildPyramidNet(b,h,  col,usedNetECol,usedNetEW,netSc);
+    else if (shape==='hexprism') netResult = _buildHexPrismNet(r,h, col,usedNetECol,usedNetEW,netSc);
+    // sphere has no net
+    if (netResult) {
+      _netFaceIndexMap = new Map(netResult.faces.map((f,i) => [f.name, i]));
+    }
+  }
+
+  // ── Face labels on 3D (now that _netFaceIndexMap is ready) ───────────────
+  if (flOn3d && result.faces) {
+    result.faces.forEach(f => {
+      const txt = _getFaceLabelTextByName(f.name);
+      if (!txt) return;
+      const [px, py] = proj(f.c);
+      _track(px, py);
+      face3dParts += _renderFaceLabel(px, py, txt);
+    });
+  }
+
+  // ── Face labels on net ───────────────────────────────────────────────────
+  let netLabelParts = '';
+  if (flEnabled && netResult && showNet) {
+    netResult.faces.forEach((f, idx) => {
+      const txt = _getFaceLabelText(idx, f.name);
+      netLabelParts += _renderFaceLabel(f.cx, f.cy, txt);
+    });
+  }
+
+  // ── Composite layout ─────────────────────────────────────────────────────
+  const PAD = 12;
+
+  if (netMode === 'net' && netResult) {
+    // Net only
+    const nw = Math.ceil(netResult.w) + 2*PAD;
+    const nh = Math.ceil(netResult.h) + 2*PAD;
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${nw} ${nh}" width="${nw}" height="${nh}">`;
+    if (!bgNone) svg += `\n<rect x="0" y="0" width="${nw}" height="${nh}" fill="${bgCol}" rx="2"/>`;
+    svg += `\n<g transform="translate(${PAD},${PAD})">`;
+    svg += '\n' + netResult.svg;
+    svg += '\n' + netLabelParts;
+    svg += '\n</g>\n</svg>';
+    return svg;
+  }
+
+  // 3D bounding box
+  const vx3 = isFinite(_bx0) ? Math.floor(_bx0) - PAD : 0;
+  const vy3 = isFinite(_by0) ? Math.floor(_by0) - PAD : 0;
+  const vw3 = isFinite(_bx1) ? Math.ceil(_bx1 - _bx0) + 2*PAD : cW;
+  const vh3 = isFinite(_by1) ? Math.ceil(_by1 - _by0) + 2*PAD : cH;
+
+  if (netMode === 'both' && netResult) {
+    // Side by side: 3D on left, net on right
+    const nw2 = Math.ceil(netResult.w) + 2*PAD;
+    const nh2 = Math.ceil(netResult.h) + 2*PAD;
+    const totalW = vw3 + netGap + nw2;
+    const totalH = Math.max(vh3, nh2);
+    // Vertically center the shorter one
+    const offset3y = Math.round((totalH - vh3) / 2);
+    const offsetNy = Math.round((totalH - nh2) / 2);
+    const netX = vw3 + netGap;
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}">`;
+    if (!bgNone) svg += `\n<rect x="0" y="0" width="${totalW}" height="${totalH}" fill="${bgCol}" rx="2"/>`;
+    if (defsHTML) svg += `\n<defs>\n${defsHTML}\n</defs>`;
+    // 3D group
+    svg += `\n<g transform="translate(${-vx3},${offset3y - vy3})">`;
+    svg += '\n' + result.svg;
+    svg += '\n' + annParts.join('');
+    svg += '\n' + face3dParts;
+    svg += '\n</g>';
+    // Net group
+    svg += `\n<g transform="translate(${netX + PAD},${offsetNy + PAD})">`;
+    svg += '\n' + netResult.svg;
+    svg += '\n' + netLabelParts;
+    svg += '\n</g>';
+    svg += '\n</svg>';
+    return svg;
+  }
+
+  // 3D only
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vx3} ${vy3} ${vw3} ${vh3}" width="${vw3}" height="${vh3}">`;
+  if (!bgNone) svg += `\n<rect x="${vx3}" y="${vy3}" width="${vw3}" height="${vh3}" fill="${bgCol}" rx="2"/>`;
   if (defsHTML) svg += `\n<defs>\n${defsHTML}\n</defs>`;
   svg += '\n' + result.svg;
   svg += '\n' + annParts.join('');
+  svg += '\n' + face3dParts;
   svg += '\n</svg>';
   return svg;
 }
@@ -672,13 +999,66 @@ function buildGeometry3DUI() {
 <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Enable a dimension to show its annotation. Each dimension has its own settings.</div>
 <div id="g3d-dim-panel"></div>`;
 
+  const netFontOptions = [
+    ['Arial,sans-serif','Arial'],
+    ['Helvetica Neue,Helvetica,Arial,sans-serif','Helvetica'],
+    ['Georgia,serif','Georgia'],
+    ['Times New Roman,serif','Times New Roman'],
+    ['Verdana,sans-serif','Verdana'],
+    ['Courier New,monospace','Courier New'],
+  ].map(([v,n])=>`<option value="${v}">${n}</option>`).join('');
+
+  const netHTML = `
+<div class="row2" style="margin-bottom:6px">
+  <div><label>Display</label>
+    <select id="g3d-net-mode">
+      <option value="3d" selected>3D only</option>
+      <option value="both">3D + Net</option>
+      <option value="net">Net only</option>
+    </select>
+  </div>
+  <div id="g3d-net-gap-wrap"><label>Gap (px)</label><input type="number" id="g3d-net-gap" value="30" min="0" max="200" step="5"></div>
+</div>
+<div class="row2" style="margin-bottom:6px" id="g3d-net-style-row">
+  <div><label>Net edge color</label><input type="color" id="g3d-net-edge-color" value="#1a3a5a"></div>
+  <div><label>Net edge width</label><input type="number" id="g3d-net-edge-w" value="1.5" min="0.5" max="8" step="0.5"></div>
+</div>
+
+<div class="g3d-dim-sub-head" style="margin-top:8px">Face Labels</div>
+<div class="check-row" style="margin-bottom:6px">
+  <input type="checkbox" id="g3d-fl-enable">
+  <label for="g3d-fl-enable">Show face labels</label>
+</div>
+<div id="g3d-fl-body" style="display:none">
+  <div class="check-row" style="margin-bottom:6px">
+    <input type="checkbox" id="g3d-fl-on3d">
+    <label for="g3d-fl-on3d">Also show on 3D shape</label>
+  </div>
+  <div class="row3" style="margin-bottom:4px">
+    <div><label>Color</label><input type="color" id="g3d-fl-color" value="#1a1a1a"></div>
+    <div><label>Size</label><input type="number" id="g3d-fl-size" value="13" min="6" max="40" step="1"></div>
+    <div><label>Background</label><input type="color" id="g3d-fl-bg" value="#ffffff"></div>
+  </div>
+  <div class="row2" style="margin-bottom:4px">
+    <div><label>Bg opacity</label><input type="number" id="g3d-fl-bg-op" value="0" min="0" max="1" step="0.05"></div>
+    <div><label>Font</label><select id="g3d-fl-font">${netFontOptions}</select></div>
+  </div>
+  <div style="display:flex;gap:14px;margin-bottom:8px;align-items:center">
+    <div class="check-row"><input type="checkbox" id="g3d-fl-bold"><label for="g3d-fl-bold">Bold</label></div>
+    <div class="check-row"><input type="checkbox" id="g3d-fl-ital"><label for="g3d-fl-ital">Italic</label></div>
+  </div>
+  <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Custom labels (leave blank for A, B, C…):</div>
+  <div id="g3d-fl-face-inputs"></div>
+</div>`;
+
   container.innerHTML =
     _g3dSub('sub-group--g3d-shape',  'Shape',              shapeHTML,  true)  +
     _g3dSub('sub-group--g3d-dims',   'Dimensions',         dimsHTML,   true)  +
     _g3dSub('sub-group--g3d-view',   'View & Rotation',    viewHTML,   false) +
     _g3dSub('sub-group--g3d-appear', 'Appearance',         appearHTML, false) +
     _g3dSub('sub-group--g3d-canvas', 'Canvas',             canvasHTML, false) +
-    _g3dSub('sub-group--g3d-annot',  'Dimension Arrows',   annotHTML,  false);
+    _g3dSub('sub-group--g3d-annot',  'Dimension Arrows',   annotHTML,  false) +
+    _g3dSub('sub-group--g3d-net',    'Net',                netHTML,    false);
 
   _g3dFillDimPanel('cuboid');
   _g3dWireUI();
@@ -764,6 +1144,36 @@ function _g3dFillDimPanel(shape) {
     el.addEventListener('input',  () => { if (typeof render==='function') render(); });
     el.addEventListener('change', () => { if (typeof render==='function') render(); });
   });
+
+  _g3dFillFaceInputs(shape);
+}
+
+// Face label per-face custom text inputs — re-built when shape changes
+function _g3dFillFaceInputs(shape) {
+  const wrap = document.getElementById('g3d-fl-face-inputs');
+  if (!wrap) return;
+  // Build a temporary net to find face names
+  const netBuilders = {
+    cube:     () => _buildCuboidNet(2,2,2,'#000','#000',1,1),
+    cuboid:   () => _buildCuboidNet(3,2,2,'#000','#000',1,1),
+    cylinder: () => _buildCylinderNet(1,3,'#000','#000',1,1),
+    cone:     () => _buildConeNet(1,3,'#000','#000',1,1),
+    triprism: () => _buildTriPrismNet(2,2,2,'#000','#000',1,1),
+    pyramid:  () => _buildPyramidNet(2,3,'#000','#000',1,1),
+    hexprism: () => _buildHexPrismNet(1,2,'#000','#000',1,1),
+    sphere:   () => null,
+  };
+  const nb = netBuilders[shape];
+  const nr = nb ? nb() : null;
+  if (!nr) { wrap.innerHTML = '<em style="font-size:11px;color:var(--muted)">No net for this shape</em>'; return; }
+  const AUTO = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const cols = Math.min(nr.faces.length, 4);
+  wrap.innerHTML = `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:4px 6px">` +
+    nr.faces.map((f,i) => `<div><label style="font-size:10px">${f.name} (${AUTO[i]||'?'})</label><input type="text" id="g3d-fl-face-${i}" placeholder="${AUTO[i]||f.name}" maxlength="8" style="font-size:11px;padding:2px 4px"></div>`).join('') +
+    '</div>';
+  wrap.querySelectorAll('input').forEach(el => {
+    el.addEventListener('input', () => { if (typeof render==='function') render(); });
+  });
 }
 
 function _g3dWireUI() {
@@ -835,10 +1245,33 @@ function _g3dWireUI() {
   [
     'g3d-color','g3d-edge-color','g3d-edge-w','g3d-hidden',
     'g3d-bg','g3d-canvas-w','g3d-canvas-h',
+    'g3d-net-mode','g3d-net-gap','g3d-net-edge-color','g3d-net-edge-w',
+    'g3d-fl-enable','g3d-fl-on3d','g3d-fl-color','g3d-fl-size',
+    'g3d-fl-bg','g3d-fl-bg-op','g3d-fl-font','g3d-fl-bold','g3d-fl-ital',
   ].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('input',  () => { if (typeof render==='function') render(); });
     el.addEventListener('change', () => { if (typeof render==='function') render(); });
   });
+
+  // Net mode → show/hide gap input
+  const _updateNetUI = () => {
+    const mode = document.getElementById('g3d-net-mode')?.value;
+    const gapWrap  = document.getElementById('g3d-net-gap-wrap');
+    const styleRow = document.getElementById('g3d-net-style-row');
+    if (gapWrap)  gapWrap.style.display  = mode === 'both' ? '' : 'none';
+    if (styleRow) styleRow.style.display = mode === '3d'   ? 'none' : '';
+  };
+  document.getElementById('g3d-net-mode')?.addEventListener('change', () => { _updateNetUI(); if (typeof render==='function') render(); });
+  _updateNetUI();
+
+  // Face label enable toggle
+  const _updateFLUI = () => {
+    const on = document.getElementById('g3d-fl-enable')?.checked;
+    const body = document.getElementById('g3d-fl-body');
+    if (body) body.style.display = on ? '' : 'none';
+  };
+  document.getElementById('g3d-fl-enable')?.addEventListener('change', () => { _updateFLUI(); if (typeof render==='function') render(); });
+  _updateFLUI();
 }

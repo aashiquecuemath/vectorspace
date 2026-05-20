@@ -1339,12 +1339,14 @@ input[type=hidden].pt-hidden-val { display:none !important; }
 .sub-group--g3d-appear { border:2px solid #c05508; }
 .sub-group--g3d-canvas { border:2px solid #374151; }
 .sub-group--g3d-annot  { border:2px solid #9f1239; }
+.sub-group--g3d-net    { border:2px solid #0d6e6e; }
 .sub-group--g3d-shape  > .sub-group-title { color:#1a5c8e; background:#d6eaf8; }
 .sub-group--g3d-dims   > .sub-group-title { color:#0f766e; background:#ccf0ec; }
 .sub-group--g3d-view   > .sub-group-title { color:#6b21a8; background:#ede0fc; }
 .sub-group--g3d-appear > .sub-group-title { color:#c05508; background:#fde8c8; }
 .sub-group--g3d-canvas > .sub-group-title { color:#374151; background:#f0f2f5; }
 .sub-group--g3d-annot  > .sub-group-title { color:#9f1239; background:#fdd5df; }
+.sub-group--g3d-net    > .sub-group-title { color:#0d6e6e; background:#ccefef; }
 
 /* Per-dimension annotation section */
 .g3d-dim-section {
