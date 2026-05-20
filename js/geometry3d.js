@@ -53,6 +53,14 @@ function _faceColor(base, role) {
 function _facePoly(verts, base, role, eCol, eW, proj) {
   return _poly(verts.map(proj), _faceColor(base, role), eCol, eW);
 }
+function _fillFace(verts, base, role, proj) {
+  const d = verts.map(proj).map(([x,y],i)=>`${i?'L':'M'}${fmt(x)},${fmt(y)}`).join('')+'Z';
+  return `<path d="${d}" fill="${_faceColor(base,role)}"/>`;
+}
+function _edgeFace(verts, col, w, proj) {
+  const d = verts.map(proj).map(([x,y],i)=>`${i?'L':'M'}${fmt(x)},${fmt(y)}`).join('')+'Z';
+  return `<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round"/>`;
+}
 
 /* ── Arrowhead marker ─────────────────────────────────────────────────── */
 function _arrowDef(id, col, sz) {
@@ -66,11 +74,15 @@ function _arrowDef(id, col, sz) {
 function _dim(p1, p2, norm, label, o, proj) {
   const [sx1,sy1] = proj(p1);
   const [sx2,sy2] = proj(p2);
+  const edgeDx = sx2 - sx1, edgeDy = sy2 - sy1;
+  const edgeLen = Math.hypot(edgeDx, edgeDy);
+  if (edgeLen < 1) return '';
+  const perpX = -edgeDy / edgeLen, perpY = edgeDx / edgeLen;
   const [n0x,n0y] = proj([0,0,0]);
   const [n1x,n1y] = proj(norm);
-  let dx = n1x - n0x, dy = n1y - n0y;
-  const dl = Math.hypot(dx, dy);
-  if (dl < 0.01) { dx = 0; dy = -1; } else { dx /= dl; dy /= dl; }
+  const normDx = n1x - n0x, normDy = n1y - n0y;
+  const sign = (perpX * normDx + perpY * normDy >= 0) ? 1 : -1;
+  const dx = sign * perpX, dy = sign * perpY;
   const OFF = o.offset, TICK = OFF * 0.3 + 4;
   const ax1 = sx1 + dx*OFF, ay1 = sy1 + dy*OFF;
   const ax2 = sx2 + dx*OFF, ay2 = sy2 + dy*OFF;
@@ -102,15 +114,19 @@ function _buildCuboid(w, h, d, col, eCol, eW, showHidden, proj) {
   const hw=w/2, hh=h/2, hd=d/2;
   const BFL=[-hw,-hh, hd], BFR=[hw,-hh, hd], BTR=[hw, hh, hd], BTL=[-hw, hh, hd];
   const BBL=[-hw,-hh,-hd], BBR=[hw,-hh,-hd], BTBR=[hw, hh,-hd], BTBL=[-hw, hh,-hd];
+  const faces = [
+    { v:[BBL,BBR,BTBR,BTBL], role:'back'  },
+    { v:[BBL,BFL,BTL,BTBL],  role:'left'  },
+    { v:[BBR,BTBR,BTR,BFR],  role:'right' },
+    { v:[BTL,BTR,BTBR,BTBL], role:'top'   },
+    { v:[BFL,BFR,BTR,BTL],   role:'front' },
+  ];
   let s = '';
-  s += _facePoly([BBL,BBR,BTBR,BTBL], col, 'back',  eCol, eW, proj);
-  s += _facePoly([BBL,BFL,BTL,BTBL],  col, 'left',  eCol, eW, proj);
-  s += _facePoly([BBR,BTBR,BTR,BFR],  col, 'right', eCol, eW, proj);
-  s += _facePoly([BTL,BTR,BTBR,BTBL], col, 'top',   eCol, eW, proj);
-  s += _facePoly([BFL,BFR,BTR,BTL],   col, 'front', eCol, eW, proj);
+  faces.forEach(f => s += _fillFace(f.v, col, f.role, proj));
   if (showHidden)
     [[BBL,BBR],[BBL,BTBL],[BBL,BFL]].forEach(([a,b]) =>
       s += _seg(...proj(a), ...proj(b), eCol, eW*0.55, '4,3'));
+  faces.forEach(f => s += _edgeFace(f.v, eCol, eW, proj));
   return {
     svg: s,
     dims: {
@@ -209,8 +225,10 @@ function _buildSphere(r, col, eCol, eW, proj) {
     for (let i = 0; i < SEGS; i++) {
       const a1 = 2*Math.PI*i/SEGS, a2 = 2*Math.PI*(i+1)/SEGS;
       const nx = Math.cos((a1+a2)/2), nz = Math.sin((a1+a2)/2);
-      const light = 0.5 + 0.5*(nx*0.6 + (y1+y2)/(2*r)*0.4 + nz*(-0.2));
-      const fill  = _lighten(_shade(col, Math.max(0.4,light*1.1)), Math.max(0,light-0.5)*0.3);
+      const ny_f = (y1+y2)/(2*r);
+      const diffuse = Math.max(0, nx*0.4 + ny_f*0.7 + nz*0.4);
+      const light = 0.15 + 0.85 * diffuse;
+      const fill  = _shade(col, Math.max(0.2, Math.min(1.0, light)));
       s += _poly([
         proj([cr1*Math.cos(a1),y1,cr1*Math.sin(a1)]),
         proj([cr1*Math.cos(a2),y1,cr1*Math.sin(a2)]),
@@ -243,15 +261,19 @@ function _buildSphere(r, col, eCol, eW, proj) {
 function _buildTriPrism(b, h, d, col, eCol, eW, showHidden, proj) {
   const BFL=[-b/2,-h/2, d/2], BFR=[b/2,-h/2, d/2], FAP=[0, h/2, d/2];
   const BBL=[-b/2,-h/2,-d/2], BBR=[b/2,-h/2,-d/2], BAP=[0, h/2,-d/2];
+  const faces = [
+    { v:[BBL,BBR,BAP],       role:'back'   },
+    { v:[BFL,BFR,BBR,BBL],   role:'bottom' },
+    { v:[BBL,BFL,FAP,BAP],   role:'left'   },
+    { v:[BBR,BFR,FAP,BAP],   role:'right'  },
+    { v:[BFL,BFR,FAP],       role:'front'  },
+  ];
   let s = '';
-  s += _facePoly([BBL,BBR,BAP],       col, 'back',   eCol, eW, proj);  // back triangle
-  s += _facePoly([BFL,BFR,BBR,BBL],   col, 'bottom', eCol, eW, proj);  // floor
-  s += _facePoly([BBL,BFL,FAP,BAP],   col, 'left',   eCol, eW, proj);  // left slant
-  s += _facePoly([BBR,BFR,FAP,BAP],   col, 'right',  eCol, eW, proj);  // right slant
-  s += _facePoly([BFL,BFR,FAP],       col, 'front',  eCol, eW, proj);  // front triangle
+  faces.forEach(f => s += _fillFace(f.v, col, f.role, proj));
   if (showHidden)
     [[BBL,BBR],[BBL,BAP]].forEach(([a,bv]) =>
       s += _seg(...proj(a), ...proj(bv), eCol, eW*0.55, '4,3'));
+  faces.forEach(f => s += _edgeFace(f.v, eCol, eW, proj));
   return {
     svg: s,
     dims: {
@@ -267,15 +289,19 @@ function _buildPyramid(b, h, col, eCol, eW, showHidden, proj) {
   const BFL=[-hb,botY, hb], BFR=[hb,botY, hb];
   const BBL=[-hb,botY,-hb], BBR=[hb,botY,-hb];
   const AP=[0,topY,0];
+  const faces = [
+    { v:[BBL,BBR,AP],      role:'back'   },
+    { v:[BBL,BFL,AP],      role:'left'   },
+    { v:[BBR,BFR,AP],      role:'right'  },
+    { v:[BFL,BFR,AP],      role:'front'  },
+    { v:[BFL,BFR,BBR,BBL], role:'bottom' },
+  ];
   let s = '';
-  s += _facePoly([BBL,BBR,AP],      col, 'back',   eCol, eW, proj);
-  s += _facePoly([BBL,BFL,AP],      col, 'left',   eCol, eW, proj);
-  s += _facePoly([BBR,BFR,AP],      col, 'right',  eCol, eW, proj);
-  s += _facePoly([BFL,BFR,AP],      col, 'front',  eCol, eW, proj);
-  s += _facePoly([BFL,BFR,BBR,BBL], col, 'bottom', eCol, eW, proj);
+  faces.forEach(f => s += _fillFace(f.v, col, f.role, proj));
   if (showHidden)
     [[BBL,BBR],[BBL,BFL],[BBL,AP]].forEach(([a,bv]) =>
       s += _seg(...proj(a), ...proj(bv), eCol, eW*0.55, '4,3'));
+  faces.forEach(f => s += _edgeFace(f.v, eCol, eW, proj));
   return {
     svg: s,
     dims: {
@@ -301,14 +327,17 @@ function _buildHexPrism(r, h, col, eCol, eW, showHidden, proj, rotH) {
     faceOrder.push({i, vis});
   }
   faceOrder.sort((a,b) => a.vis - b.vis);
-  let s = '';
+  const hexFaces = [];
   faceOrder.forEach(({i, vis}) => {
     const ni = (i+1) % SIDES;
     const role = vis > 0.2 ? 'right' : vis < -0.2 ? 'back' : 'left';
-    s += _facePoly([vBot[i],vBot[ni],vTop[ni],vTop[i]], col, role, eCol, eW, proj);
+    hexFaces.push({ v:[vBot[i],vBot[ni],vTop[ni],vTop[i]], role });
   });
-  s += _facePoly(vBot.slice().reverse(), col, 'bottom', eCol, eW, proj);
-  s += _facePoly(vTop, col, 'top', eCol, eW, proj);
+  hexFaces.push({ v:vBot.slice().reverse(), role:'bottom' });
+  hexFaces.push({ v:vTop, role:'top' });
+  let s = '';
+  hexFaces.forEach(f => s += _fillFace(f.v, col, f.role, proj));
+  hexFaces.forEach(f => s += _edgeFace(f.v, eCol, eW, proj));
   return {
     svg: s,
     dims: {
@@ -359,6 +388,22 @@ const _G3D_PARAM_META = {
   hexprism: [{ id:'g3d-r', lbl:'Radius', v:1,   min:0.1, max:10, step:0.1 },
              { id:'g3d-h', lbl:'Height', v:2,   min:0.5, max:20, step:0.5 }],
 };
+
+/* ── Color scheme presets ─────────────────────────────────────────────── */
+const _G3D_SCHEMES = [
+  { name:'Blue',   face:'#4a90d9', edge:'#1a3a5a' },
+  { name:'Green',  face:'#43a047', edge:'#1b5e20' },
+  { name:'Red',    face:'#ef5350', edge:'#7f0000' },
+  { name:'Yellow', face:'#fdd835', edge:'#f57f17' },
+  { name:'Purple', face:'#7e57c2', edge:'#311b92' },
+  { name:'Orange', face:'#ff7043', edge:'#bf360c' },
+  { name:'Teal',   face:'#26c6da', edge:'#004d40' },
+  { name:'Gray',   face:'#90a4ae', edge:'#263238' },
+  { name:'Pink',   face:'#f06292', edge:'#880e4f' },
+  { name:'Brown',  face:'#8d6e63', edge:'#3e2723' },
+  { name:'Lime',   face:'#aed581', edge:'#33691e' },
+  { name:'Indigo', face:'#5c6bc0', edge:'#1a237e' },
+];
 
 /* ══════════════════════════════════════════════════════════════════════════
    Main generator  (called by generateShape router)
@@ -443,9 +488,10 @@ function generateGeometry3D() {
     if (!dd) continue;
     const dimColor  = val(`g3d-dim-${shape}-${dm.key}-color`) || annCol;
     const dimOffset = num(`g3d-dim-${shape}-${dm.key}-off`)   || annOff;
+    const dimFs     = Math.max(6, num(`g3d-dim-${shape}-${dm.key}-fs`) || annSz);
     const dimMid    = 'g3d_arr_' + dimColor.replace('#','');
     if (!markers.has(dimColor)) markers.set(dimColor, dimMid);
-    const dOpts = { ...baseOpts, arrowColor:dimColor, labelColor:dimColor, offset:dimOffset, mid:dimMid };
+    const dOpts = { ...baseOpts, arrowColor:dimColor, labelColor:dimColor, offset:dimOffset, fontSize:dimFs, mid:dimMid };
     annParts.push(_dim(dd.p1, dd.p2, dd.norm, lbl, dOpts, proj));
   }
 
@@ -504,8 +550,13 @@ function buildGeometry3DUI() {
 </div>
 <button id="g3d-rot-reset" class="btn-sm" style="margin-top:4px">Reset view</button>`;
 
+  const schemeSwatches = _G3D_SCHEMES.map(sc =>
+    `<div class="g3d-scheme-swatch" data-face="${sc.face}" data-edge="${sc.edge}" title="${sc.name}" style="background:${sc.face};border-color:${sc.edge}"></div>`
+  ).join('');
+
   const appearHTML = `
-<div class="row3">
+<div class="g3d-scheme-grid">${schemeSwatches}</div>
+<div class="row3" style="margin-top:6px">
   <div><label>Face color</label><input type="color" id="g3d-color" value="#4a90d9"></div>
   <div><label>Edge color</label><input type="color" id="g3d-edge-color" value="#1a3a5a"></div>
   <div><label>Edge width</label><input type="number" id="g3d-edge-w" value="1.5" min="0.5" max="8" step="0.5"></div>
@@ -587,13 +638,15 @@ function _g3dFillDimPanel(shape) {
   const gColor = document.getElementById('g3d-ann-color')?.value  || '#cc3300';
   const gOff   = document.getElementById('g3d-ann-offset')?.value || '28';
 
+  const gSz = document.getElementById('g3d-ann-sz')?.value || '14';
   panel.innerHTML = defs.map(dm => `
 <div class="g3d-dim-ann-row">
   <input type="checkbox" id="g3d-dim-${shape}-${dm.key}">
   <label for="g3d-dim-${shape}-${dm.key}">${dm.label}</label>
   <input type="text"   id="g3d-dim-${shape}-${dm.key}-lbl"   class="g3d-lbl-inp" placeholder="${dm.ph}" maxlength="12">
   <input type="color"  id="g3d-dim-${shape}-${dm.key}-color" value="${gColor}" title="Arrow & label color">
-  <input type="number" id="g3d-dim-${shape}-${dm.key}-off"   value="${gOff}" min="4" max="120" step="2" title="Offset">
+  <input type="number" id="g3d-dim-${shape}-${dm.key}-off"   value="${gOff}" min="4" max="120" step="2" title="Offset (px)">
+  <input type="number" id="g3d-dim-${shape}-${dm.key}-fs"    value="${gSz}"  min="6" max="40"  step="1" title="Font size">
 </div>`).join('');
 
   panel.querySelectorAll('input').forEach(el => {
@@ -611,6 +664,17 @@ function _g3dWireUI() {
       const shape = btn.dataset.g3dshape;
       document.getElementById('g3d-shape').value = shape;
       _g3dFillDimPanel(shape);
+      if (typeof render==='function') render();
+    });
+  });
+
+  // Color scheme swatches
+  document.querySelectorAll('.g3d-scheme-swatch').forEach(sw => {
+    sw.addEventListener('click', () => {
+      const fc = document.getElementById('g3d-color');
+      const ec = document.getElementById('g3d-edge-color');
+      if (fc) fc.value = sw.dataset.face;
+      if (ec) ec.value = sw.dataset.edge;
       if (typeof render==='function') render();
     });
   });

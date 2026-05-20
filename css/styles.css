@@ -1349,7 +1349,7 @@ input[type=hidden].pt-hidden-val { display:none !important; }
 /* Per-dimension annotation row */
 .g3d-dim-ann-row {
   display: grid;
-  grid-template-columns: 18px 60px 1fr 26px 48px;
+  grid-template-columns: 18px 60px 1fr 26px 44px 40px;
   gap: 4px 5px;
   align-items: center;
   margin-bottom: 5px;
@@ -1360,13 +1360,27 @@ input[type=hidden].pt-hidden-val { display:none !important; }
   border: 1px solid var(--border); border-radius: 3px; cursor: pointer;
 }
 .g3d-dim-ann-row input[type=number] {
-  width: 48px; padding: 2px 4px; font-size: 11px;
+  width: 100%; padding: 2px 4px; font-size: 11px;
   border: 1px solid var(--border); border-radius: 4px;
   background: var(--surface); color: var(--text);
 }
 .g3d-dim-ann-row input[type=checkbox] {
   accent-color: var(--accent, #4a6fa5); cursor: pointer;
 }
+
+/* Color scheme swatches */
+.g3d-scheme-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.g3d-scheme-swatch {
+  height: 20px; border-radius: 4px;
+  border: 2px solid; cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.g3d-scheme-swatch:hover { transform: scale(1.12); box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
 
 /* Rotation slider rows */
 .g3d-rot-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
