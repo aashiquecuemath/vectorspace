@@ -77,7 +77,7 @@ function _arrowDef(id, col, sz) {
 }
 
 /* ── Dimension annotation ─────────────────────────────────────────────── */
-function _dim(p1, p2, norm, label, o, proj) {
+function _dim(p1, p2, norm, label, o, proj, track) {
   const [sx1,sy1] = proj(p1);
   const [sx2,sy2] = proj(p2);
   const edgeDx = sx2 - sx1, edgeDy = sy2 - sy1;
@@ -93,22 +93,47 @@ function _dim(p1, p2, norm, label, o, proj) {
   const ax1 = sx1 + dx*OFF, ay1 = sy1 + dy*OFF;
   const ax2 = sx2 + dx*OFF, ay2 = sy2 + dy*OFF;
   if (Math.hypot(ax2-ax1, ay2-ay1) < 2) return '';
+  if (track) { track(ax1, ay1); track(ax2, ay2); }
   let s = '';
   if (o.showTicks) {
-    s += _seg(sx1,sy1, ax1+dx*TICK, ay1+dy*TICK, o.arrowColor, o.arrowW*0.7) + '\n';
-    s += _seg(sx2,sy2, ax2+dx*TICK, ay2+dy*TICK, o.arrowColor, o.arrowW*0.7) + '\n';
+    const tx1 = ax1+dx*TICK, ty1 = ay1+dy*TICK;
+    const tx2 = ax2+dx*TICK, ty2 = ay2+dy*TICK;
+    s += _seg(sx1,sy1, tx1,ty1, o.arrowColor, o.arrowW*0.7) + '\n';
+    s += _seg(sx2,sy2, tx2,ty2, o.arrowColor, o.arrowW*0.7) + '\n';
+    if (track) { track(tx1,ty1); track(tx2,ty2); }
   }
-  s += `<line x1="${fmt(ax1)}" y1="${fmt(ay1)}" x2="${fmt(ax2)}" y2="${fmt(ay2)}"
+  const lPos = o.labelPos || 'center';
+  const lOff = (o.labelOffset != null) ? o.labelOffset : (o.fontSize * 0.6 + 4);
+  if (label && lPos === 'center') {
+    // Break arrow at midpoint to leave room for text
+    const mx = (ax1+ax2)/2, my = (ay1+ay2)/2;
+    const alen = Math.hypot(ax2-ax1, ay2-ay1);
+    const tx = (ax2-ax1)/alen, ty = (ay2-ay1)/alen;
+    const gap = Math.min(label.length * o.fontSize * 0.32 + 6, alen * 0.42);
+    s += `<line x1="${fmt(ax1)}" y1="${fmt(ay1)}" x2="${fmt(mx-tx*gap)}" y2="${fmt(my-ty*gap)}"
+  stroke="${o.arrowColor}" stroke-width="${o.arrowW}" marker-start="url(#${o.mid})"/>\n`;
+    s += `<line x1="${fmt(mx+tx*gap)}" y1="${fmt(my+ty*gap)}" x2="${fmt(ax2)}" y2="${fmt(ay2)}"
+  stroke="${o.arrowColor}" stroke-width="${o.arrowW}" marker-end="url(#${o.mid})"/>\n`;
+  } else {
+    s += `<line x1="${fmt(ax1)}" y1="${fmt(ay1)}" x2="${fmt(ax2)}" y2="${fmt(ay2)}"
   stroke="${o.arrowColor}" stroke-width="${o.arrowW}"
   marker-start="url(#${o.mid})" marker-end="url(#${o.mid})"/>\n`;
+  }
   if (label) {
-    const lx = (ax1+ax2)/2 + dx*(o.fontSize*0.8+3);
-    const ly = (ay1+ay2)/2 + dy*(o.fontSize*0.8+3);
+    const t = lPos === 'start' ? 0.15 : lPos === 'end' ? 0.85 : 0.5;
+    const lx = ax1 + t*(ax2-ax1) + dx*lOff;
+    const ly = ay1 + t*(ay2-ay1) + dy*lOff;
+    const labelColor = o.labelColor || o.arrowColor;
     const fw = o.fontBold   ? 'bold'   : 'normal';
     const fi = o.fontItalic ? 'italic' : 'normal';
     s += `<text x="${fmt(lx)}" y="${fmt(ly)}" text-anchor="middle" dominant-baseline="central"
   font-family="${o.fontFamily}" font-size="${o.fontSize}" font-weight="${fw}" font-style="${fi}"
-  fill="${o.labelColor}">${escXml(label)}</text>\n`;
+  fill="${labelColor}">${escXml(label)}</text>\n`;
+    if (track) {
+      const tw = label.length * o.fontSize * 0.35 + 6;
+      const th = o.fontSize * 0.65;
+      track(lx - tw, ly - th); track(lx + tw, ly + th);
+    }
   }
   return s;
 }
@@ -398,6 +423,14 @@ const _G3D_PARAM_META = {
 };
 
 /* ── Color scheme presets ─────────────────────────────────────────────── */
+// Standard themes (same 4 as other tools in this app, mapping mid→face, dark→edge)
+const _G3D_STD_THEMES = () => [
+  { name:'Ocean',   face: SCHEMES.ocean.mid,   edge: SCHEMES.ocean.dark   },
+  { name:'Forest',  face: SCHEMES.forest.mid,  edge: SCHEMES.forest.dark  },
+  { name:'Magenta', face: SCHEMES.magenta.mid, edge: SCHEMES.magenta.dark },
+  { name:'Golden',  face: SCHEMES.golden.mid,  edge: SCHEMES.golden.dark  },
+];
+// Extra themes selectable via dropdown
 const _G3D_SCHEMES = [
   { name:'Blue',   face:'#4a90d9', edge:'#1a3a5a' },
   { name:'Green',  face:'#43a047', edge:'#1b5e20' },
@@ -453,8 +486,15 @@ function generateGeometry3D() {
     hexprism: Math.max(r*2,h) * 1.4,
   }[shape] || 4;
 
-  const sc   = Math.min(cW, cH) * 0.46 / maxDim;
-  const proj = _makeProj(rotH, rotV, rotZ, sc, cW/2, cH/2);
+  const sc = Math.min(cW, cH) * 0.46 / maxDim;
+  // Bounding box tracker — wraps proj so every rendered point is recorded
+  let _bx0 = Infinity, _by0 = Infinity, _bx1 = -Infinity, _by1 = -Infinity;
+  const _track = (x, y, r = 0) => {
+    _bx0 = Math.min(_bx0, x-r); _by0 = Math.min(_by0, y-r);
+    _bx1 = Math.max(_bx1, x+r); _by1 = Math.max(_by1, y+r);
+  };
+  const baseProj = _makeProj(rotH, rotV, rotZ, sc, cW/2, cH/2);
+  const proj = pt => { const r = baseProj(pt); _track(r[0], r[1]); return r; };
 
   let result;
   if      (shape==='cube')     result = _buildCuboid(s,s,s, col,eCol,eW,hidden,proj);
@@ -478,30 +518,41 @@ function generateGeometry3D() {
     const dimKey = (shape==='cube' && dm.key==='s') ? 'w' : dm.key;
     const dd     = result.dims[dimKey];
     if (!dd) continue;
-    const dColor = val(`g3d-dim-${shape}-${dm.key}-color`) || '#cc3300';
-    const dOff   = Math.max(5,   num(`g3d-dim-${shape}-${dm.key}-off`)  || 28);
-    const dFs    = Math.max(6,   num(`g3d-dim-${shape}-${dm.key}-fs`)   || 14);
-    const dAw    = Math.max(0.5, num(`g3d-dim-${shape}-${dm.key}-aw`)   || 1.5);
-    const dAs    = Math.max(2,   num(`g3d-dim-${shape}-${dm.key}-as`)   || 5);
-    const dFf    = val(`g3d-dim-${shape}-${dm.key}-ff`)   || 'Arial,sans-serif';
-    const dBold  = chk(`g3d-dim-${shape}-${dm.key}-bold`);
-    const dItal  = chk(`g3d-dim-${shape}-${dm.key}-ital`);
-    const dTicks = chk(`g3d-dim-${shape}-${dm.key}-ticks`);
-    const dMid   = 'g3d_arr_' + dColor.replace('#','');
+    const dColor    = val(`g3d-dim-${shape}-${dm.key}-color`)     || '#cc3300';
+    const dLblColor = val(`g3d-dim-${shape}-${dm.key}-lbl-color`) || dColor;
+    const dOff      = Math.max(5,   num(`g3d-dim-${shape}-${dm.key}-off`)     || 28);
+    const dLblOff   = num(`g3d-dim-${shape}-${dm.key}-lbl-off`) != 0
+                      ? num(`g3d-dim-${shape}-${dm.key}-lbl-off`) : 12;
+    const dLblPos   = val(`g3d-dim-${shape}-${dm.key}-lbl-pos`) || 'center';
+    const dFs       = Math.max(6,   num(`g3d-dim-${shape}-${dm.key}-fs`)      || 14);
+    const dAw       = Math.max(0.5, num(`g3d-dim-${shape}-${dm.key}-aw`)      || 1.5);
+    const dAs       = Math.max(2,   num(`g3d-dim-${shape}-${dm.key}-as`)      || 5);
+    const dFf       = val(`g3d-dim-${shape}-${dm.key}-ff`)   || 'Arial,sans-serif';
+    const dBold     = chk(`g3d-dim-${shape}-${dm.key}-bold`);
+    const dItal     = chk(`g3d-dim-${shape}-${dm.key}-ital`);
+    const dTicks    = chk(`g3d-dim-${shape}-${dm.key}-ticks`);
+    const dMid      = 'g3d_arr_' + dColor.replace('#','');
     if (!markers.has(dColor)) markers.set(dColor, { id: dMid, arrowSz: dAs });
     const dOpts = {
-      arrowColor: dColor, labelColor: dColor,
+      arrowColor: dColor, labelColor: dLblColor,
       arrowW: dAw, fontSize: dFs, fontFamily: dFf,
       fontBold: dBold, fontItalic: dItal,
-      offset: dOff, showTicks: dTicks, mid: dMid,
+      offset: dOff, labelOffset: dLblOff, labelPos: dLblPos,
+      showTicks: dTicks, mid: dMid,
     };
-    annParts.push(_dim(dd.p1, dd.p2, dd.norm, lbl, dOpts, proj));
+    annParts.push(_dim(dd.p1, dd.p2, dd.norm, lbl, dOpts, proj, _track));
   }
 
   const defsHTML = [...markers.entries()].map(([color, {id, arrowSz}]) => _arrowDef(id, color, arrowSz)).join('\n');
 
-  let svg = svgOpen(cW, cH);
-  if (!bgNone) svg += `\n<rect width="${cW}" height="${cH}" fill="${bgCol}" rx="2"/>`;
+  // Compute tight bounding box from all tracked points + padding
+  const PAD = 10;
+  const vx = isFinite(_bx0) ? Math.floor(_bx0) - PAD : 0;
+  const vy = isFinite(_by0) ? Math.floor(_by0) - PAD : 0;
+  const vw = isFinite(_bx1) ? Math.ceil(_bx1 - _bx0) + 2*PAD : cW;
+  const vh = isFinite(_by1) ? Math.ceil(_by1 - _by0) + 2*PAD : cH;
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vx} ${vy} ${vw} ${vh}" width="${vw}" height="${vh}">`;
+  if (!bgNone) svg += `\n<rect x="${vx}" y="${vy}" width="${vw}" height="${vh}" fill="${bgCol}" rx="2"/>`;
   if (defsHTML) svg += `\n<defs>\n${defsHTML}\n</defs>`;
   svg += '\n' + result.svg;
   svg += '\n' + annParts.join('');
@@ -558,13 +609,24 @@ function buildGeometry3DUI() {
 </div>
 <button id="g3d-rot-reset" class="btn-sm" style="margin-top:4px">Reset view</button>`;
 
-  const schemeSwatches = _G3D_SCHEMES.map(sc =>
+  const stdSwatches = _G3D_STD_THEMES().map(sc =>
     `<div class="g3d-scheme-swatch" data-face="${sc.face}" data-edge="${sc.edge}" title="${sc.name}" style="background:${sc.face};border-color:${sc.edge}"></div>`
+  ).join('');
+  const moreOptions = _G3D_SCHEMES.map(sc =>
+    `<option value="${sc.face}|${sc.edge}">${sc.name}</option>`
   ).join('');
 
   const appearHTML = `
-<div class="g3d-scheme-grid">${schemeSwatches}</div>
-<div class="row3" style="margin-top:6px">
+<div class="g3d-scheme-grid g3d-scheme-grid--4" style="margin-bottom:6px">${stdSwatches}</div>
+<div class="row2" style="margin-bottom:6px">
+  <div><label>More themes</label>
+    <select id="g3d-more-scheme">
+      <option value="">— select —</option>
+      ${moreOptions}
+    </select>
+  </div>
+</div>
+<div class="row3" style="margin-top:2px">
   <div><label>Face color</label><input type="color" id="g3d-color" value="#4a90d9"></div>
   <div><label>Edge color</label><input type="color" id="g3d-edge-color" value="#1a3a5a"></div>
   <div><label>Edge width</label><input type="number" id="g3d-edge-w" value="1.5" min="0.5" max="8" step="0.5"></div>
@@ -635,20 +697,35 @@ function _g3dFillDimPanel(shape) {
   <div class="g3d-dim-section-body">
     <div class="row2">
       <div><label>Label text</label><input type="text" id="${k}-lbl" class="g3d-lbl-inp" placeholder="${dm.ph}" maxlength="16"></div>
-      <div><label>Color</label><input type="color" id="${k}-color" value="#cc3300"></div>
+      <div style="display:flex;gap:6px">
+        <div><label>Arrow</label><input type="color" id="${k}-color" value="#cc3300" title="Arrow color"></div>
+        <div><label>Label</label><input type="color" id="${k}-lbl-color" value="#cc3300" title="Label text color"></div>
+      </div>
     </div>
     <div class="row3" style="margin-top:4px">
-      <div><label>Offset (px)</label><input type="number" id="${k}-off"  value="28" min="4" max="120" step="2"></div>
-      <div><label>Font size</label> <input type="number" id="${k}-fs"   value="14" min="6" max="40"  step="1"></div>
-      <div><label>Arrow width</label><input type="number" id="${k}-aw"  value="1.5" min="0.5" max="6" step="0.5"></div>
+      <div><label>Arrow offset</label><input type="number" id="${k}-off"  value="28" min="4" max="120" step="2"></div>
+      <div><label>Label offset</label><input type="number" id="${k}-lbl-off" value="12" min="0" max="60" step="1"></div>
+      <div><label>Label pos</label>
+        <select id="${k}-lbl-pos">
+          <option value="center">Middle</option>
+          <option value="start">Left</option>
+          <option value="end">Right</option>
+        </select>
+      </div>
+    </div>
+    <div class="row3" style="margin-top:4px">
+      <div><label>Font size</label><input type="number" id="${k}-fs"  value="14" min="6" max="40"  step="1"></div>
+      <div><label>Arrow width</label><input type="number" id="${k}-aw" value="1.5" min="0.5" max="6" step="0.5"></div>
+      <div><label>Head size</label><input type="number" id="${k}-as"  value="5" min="2" max="16" step="0.5"></div>
     </div>
     <div class="row2" style="margin-top:4px">
-      <div><label>Head size</label><input type="number" id="${k}-as" value="5" min="2" max="16" step="0.5"></div>
       <div><label>Font</label><select id="${k}-ff">${fontOptions}</select></div>
+      <div style="display:flex;gap:10px;align-items:flex-end;margin-top:18px">
+        <div class="check-row"><input type="checkbox" id="${k}-bold"><label for="${k}-bold">Bold</label></div>
+        <div class="check-row"><input type="checkbox" id="${k}-ital" checked><label for="${k}-ital">Italic</label></div>
+      </div>
     </div>
-    <div style="display:flex;gap:14px;margin-top:5px;align-items:center">
-      <div class="check-row"><input type="checkbox" id="${k}-bold"><label for="${k}-bold">Bold</label></div>
-      <div class="check-row"><input type="checkbox" id="${k}-ital" checked><label for="${k}-ital">Italic</label></div>
+    <div style="margin-top:5px">
       <div class="check-row"><input type="checkbox" id="${k}-ticks" checked><label for="${k}-ticks">Extension lines</label></div>
     </div>
   </div>
@@ -674,15 +751,23 @@ function _g3dWireUI() {
     });
   });
 
-  // Color scheme swatches
-  document.querySelectorAll('.g3d-scheme-swatch').forEach(sw => {
-    sw.addEventListener('click', () => {
-      const fc = document.getElementById('g3d-color');
-      const ec = document.getElementById('g3d-edge-color');
-      if (fc) fc.value = sw.dataset.face;
-      if (ec) ec.value = sw.dataset.edge;
-      if (typeof render==='function') render();
-    });
+  // Standard scheme swatches + More themes dropdown
+  const _applyG3dScheme = (face, edge) => {
+    const fc = document.getElementById('g3d-color');
+    const ec = document.getElementById('g3d-edge-color');
+    if (fc) fc.value = face;
+    if (ec) ec.value = edge;
+    if (typeof render==='function') render();
+  };
+  document.querySelectorAll('.g3d-scheme-swatch').forEach(sw =>
+    sw.addEventListener('click', () => _applyG3dScheme(sw.dataset.face, sw.dataset.edge))
+  );
+  document.getElementById('g3d-more-scheme')?.addEventListener('change', e => {
+    const v = e.target.value;
+    if (!v) return;
+    const [face, edge] = v.split('|');
+    e.target.value = '';
+    _applyG3dScheme(face, edge);
   });
 
   // Transparent bg toggle

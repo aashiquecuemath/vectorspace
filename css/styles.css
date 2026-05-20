@@ -1370,16 +1370,16 @@ input[type=hidden].pt-hidden-val { display:none !important; }
 /* Color scheme swatches */
 .g3d-scheme-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 4px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
   margin-bottom: 4px;
 }
 .g3d-scheme-swatch {
-  height: 20px; border-radius: 4px;
+  height: 24px; border-radius: 5px;
   border: 2px solid; cursor: pointer;
   transition: transform 0.1s, box-shadow 0.1s;
 }
-.g3d-scheme-swatch:hover { transform: scale(1.12); box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
+.g3d-scheme-swatch:hover { transform: scale(1.08); box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
 
 /* Rotation slider rows */
 .g3d-rot-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
