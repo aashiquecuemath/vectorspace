@@ -944,6 +944,7 @@ function _addSelectionRing(el){
     const pad=4;
     const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
     r.setAttribute('data-sel-ring','1');
+    r.setAttribute('pointer-events','none');
     r.setAttribute('x',bb.x-pad);r.setAttribute('y',bb.y-pad);
     r.setAttribute('width',bb.width+pad*2);r.setAttribute('height',bb.height+pad*2);
     r.setAttribute('fill','none');
@@ -975,19 +976,12 @@ document.getElementById('preview').addEventListener('mousedown',e=>{
 document.addEventListener('mousemove',e=>{
   if(!dragState)return;
   const ds=dragState;
-  const svgPt=svgLocalPt(ds.svg,e.clientX,e.clientY);
-  const sdx=svgPt.x-ds.startSX;
-  const sdy=svgPt.y-ds.startSY;
-  const r=ds.svg.getBoundingClientRect();
-  const vb=ds.svg.viewBox.baseVal;
-  const scale=vb.width?r.width/vb.width:1;
-  const cssDx=sdx*scale;
-  const cssDy=sdy*scale;
-  if(Math.abs(cssDx)>3||Math.abs(cssDy)>3){
+  const dx=e.clientX-ds.startCX;
+  const dy=e.clientY-ds.startCY;
+  if(Math.abs(dx)>2||Math.abs(dy)>2){
     ds.moved=true;
-    ds.svgDx=sdx;ds.svgDy=sdy;
     ds.el.classList.add('dragging');
-    ds.el.style.transform=`translate(${cssDx}px,${cssDy}px)`;
+    ds.el.style.transform=`translate(${dx}px,${dy}px)`;
   }
 });
 
@@ -1005,7 +999,9 @@ document.addEventListener('mouseup',e=>{
     return;
   }
 
-  applyDragToCode(ds.fline,ds.el,ds.svgDx,ds.svgDy);
+  // Compute final SVG-space delta at the mouseup position
+  const endPt=svgLocalPt(ds.svg,e.clientX,e.clientY);
+  applyDragToCode(ds.fline,ds.el,endPt.x-ds.startSX,endPt.y-ds.startSY);
 });
 
 document.getElementById('preview').addEventListener('dblclick',e=>{
