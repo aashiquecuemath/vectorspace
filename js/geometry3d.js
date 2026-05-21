@@ -106,6 +106,7 @@ function _dim(p1, p2, norm, label, o, proj, track) {
   const lPos = o.labelPos || 'center';
   const lOff = (o.labelOffset != null) ? o.labelOffset : (o.fontSize * 0.6 + 4);
   const _arrowMidXY = () => [(ax1+ax2)/2, (ay1+ay2)/2];
+  const da = o.dash ? ` stroke-dasharray="${o.dash}"` : '';
   if (label && lPos === 'center') {
     const [mx, my] = _arrowMidXY();
     const alen = Math.hypot(ax2-ax1, ay2-ay1);
@@ -118,12 +119,12 @@ function _dim(p1, p2, norm, label, o, proj, track) {
     const tangExtent = hw * Math.abs(cosR*tx + sinR*ty) + hh * Math.abs(-sinR*tx + cosR*ty);
     const gap = Math.min(tangExtent + 6, alen * 0.42);
     s += `<line x1="${fmt(ax1)}" y1="${fmt(ay1)}" x2="${fmt(mx-tx*gap)}" y2="${fmt(my-ty*gap)}"
-  stroke="${o.arrowColor}" stroke-width="${o.arrowW}" marker-start="url(#${o.mid})"/>\n`;
+  stroke="${o.arrowColor}" stroke-width="${o.arrowW}"${da} marker-start="url(#${o.mid})"/>\n`;
     s += `<line x1="${fmt(mx+tx*gap)}" y1="${fmt(my+ty*gap)}" x2="${fmt(ax2)}" y2="${fmt(ay2)}"
-  stroke="${o.arrowColor}" stroke-width="${o.arrowW}" marker-end="url(#${o.mid})"/>\n`;
+  stroke="${o.arrowColor}" stroke-width="${o.arrowW}"${da} marker-end="url(#${o.mid})"/>\n`;
   } else {
     s += `<line x1="${fmt(ax1)}" y1="${fmt(ay1)}" x2="${fmt(ax2)}" y2="${fmt(ay2)}"
-  stroke="${o.arrowColor}" stroke-width="${o.arrowW}"
+  stroke="${o.arrowColor}" stroke-width="${o.arrowW}"${da}
   marker-start="url(#${o.mid})" marker-end="url(#${o.mid})"/>\n`;
   }
   if (label) {
@@ -231,6 +232,11 @@ function _getNetDimSpec(shape, key, nd) {
     if (key==='r') return {x1:0,y1:rowY,   x2:S,y2:rowY,    nx:0,ny:-1};
     if (key==='h') return {x1:6*S,y1:rowY, x2:6*S,y2:rowY+H, nx:1,ny:0};
   }
+  if (shape==='pentprism') {
+    const {pentS,pentRy} = nd;
+    if (key==='r') return {x1:0,y1:pentRy,        x2:nd.R,y2:pentRy,           nx:0,ny:-1};
+    if (key==='h') return {x1:5*pentS,y1:pentRy,  x2:5*pentS,y2:pentRy+H,      nx:1,ny:0};
+  }
   return null;
 }
 
@@ -244,24 +250,24 @@ function _buildCuboid(w, h, d, col, eCol, eW, showHidden, proj) {
   const BFL=[-hw,-hh, hd], BFR=[hw,-hh, hd], BTR=[hw, hh, hd], BTL=[-hw, hh, hd];
   const BBL=[-hw,-hh,-hd], BBR=[hw,-hh,-hd], BTBR=[hw, hh,-hd], BTBL=[-hw, hh,-hd];
   const faces = [
-    { v:[BBL,BBR,BTBR,BTBL], role:'back'  },
-    { v:[BBL,BFL,BTL,BTBL],  role:'left'  },
+    { v:[BBL,BBR,BTBR,BTBL], role:'back',  noEdge:true },
+    { v:[BBL,BFL,BTL,BTBL],  role:'left',  noEdge:true },
     { v:[BBR,BTBR,BTR,BFR],  role:'right' },
     { v:[BTL,BTR,BTBR,BTBL], role:'top'   },
     { v:[BFL,BFR,BTR,BTL],   role:'front' },
   ];
   let s = '';
   faces.forEach(f => s += _fillFace(f.v, col, f.role, proj));
+  faces.forEach(f => { if (!f.noEdge) s += _edgeFace(f.v, eCol, eW, proj); });
   if (showHidden)
     [[BBL,BBR],[BBL,BTBL],[BBL,BFL]].forEach(([a,b]) =>
-      s += _seg(...proj(a), ...proj(b), eCol, eW*0.55, '4,3'));
-  faces.forEach(f => s += _edgeFace(f.v, eCol, eW, proj));
+      s += _seg(...proj(a), ...proj(b), eCol, eW*0.7, '5,4'));
   return {
     svg: s,
     dims: {
       w: { p1:[-hw,-hh, hd], p2:[hw,-hh, hd], norm:[0,-1, 0.6] },
       h: { p1:[ hw,-hh, hd], p2:[hw, hh, hd], norm:[1, 0, 0.3] },
-      d: { p1:[ hw,-hh, hd], p2:[hw,-hh,-hd], norm:[1,-0.6, 0] },
+      d: { p1:[-hw,-hh, hd], p2:[-hw,-hh,-hd], norm:[-1,-0.6, 0], hidden: true },
     },
     faces: [
       { name:'Top',    c:[0,   hh, 0 ], role:'top'    },
@@ -399,18 +405,18 @@ function _buildTriPrism(b, h, d, col, eCol, eW, showHidden, proj) {
   const BFL=[-b/2,-h/2, d/2], BFR=[b/2,-h/2, d/2], FAP=[0, h/2, d/2];
   const BBL=[-b/2,-h/2,-d/2], BBR=[b/2,-h/2,-d/2], BAP=[0, h/2,-d/2];
   const faces = [
-    { v:[BBL,BBR,BAP],       role:'back'   },
-    { v:[BFL,BFR,BBR,BBL],   role:'bottom' },
+    { v:[BBL,BBR,BAP],       role:'back',   noEdge:true },
+    { v:[BFL,BFR,BBR,BBL],   role:'bottom', noEdge:true },
     { v:[BBL,BFL,FAP,BAP],   role:'left'   },
     { v:[BBR,BFR,FAP,BAP],   role:'right'  },
     { v:[BFL,BFR,FAP],       role:'front'  },
   ];
   let s = '';
   faces.forEach(f => s += _fillFace(f.v, col, f.role, proj));
+  faces.forEach(f => { if (!f.noEdge) s += _edgeFace(f.v, eCol, eW, proj); });
   if (showHidden)
     [[BBL,BBR],[BBL,BAP]].forEach(([a,bv]) =>
-      s += _seg(...proj(a), ...proj(bv), eCol, eW*0.55, '4,3'));
-  faces.forEach(f => s += _edgeFace(f.v, eCol, eW, proj));
+      s += _seg(...proj(a), ...proj(bv), eCol, eW*0.7, '5,4'));
   const sl = Math.sqrt((b/2)*(b/2) + h*h);  // slant side length
   return {
     svg: s,
@@ -436,18 +442,18 @@ function _buildPyramid(b, h, col, eCol, eW, showHidden, proj) {
   const BBL=[-hb,botY,-hb], BBR=[hb,botY,-hb];
   const AP=[0,topY,0];
   const faces = [
-    { v:[BBL,BBR,AP],      role:'back'   },
-    { v:[BBL,BFL,AP],      role:'left'   },
+    { v:[BBL,BBR,AP],      role:'back',   noEdge:true },
+    { v:[BBL,BFL,AP],      role:'left',   noEdge:true },
     { v:[BBR,BFR,AP],      role:'right'  },
     { v:[BFL,BFR,AP],      role:'front'  },
-    { v:[BFL,BFR,BBR,BBL], role:'bottom' },
+    { v:[BFL,BFR,BBR,BBL], role:'bottom', noEdge:true },
   ];
   let s = '';
   faces.forEach(f => s += _fillFace(f.v, col, f.role, proj));
+  faces.forEach(f => { if (!f.noEdge) s += _edgeFace(f.v, eCol, eW, proj); });
   if (showHidden)
     [[BBL,BBR],[BBL,BFL],[BBL,AP]].forEach(([a,bv]) =>
-      s += _seg(...proj(a), ...proj(bv), eCol, eW*0.55, '4,3'));
-  faces.forEach(f => s += _edgeFace(f.v, eCol, eW, proj));
+      s += _seg(...proj(a), ...proj(bv), eCol, eW*0.7, '5,4'));
   const pySlant = Math.sqrt((b/2)*(b/2) + h*h);
   return {
     svg: s,
@@ -466,38 +472,56 @@ function _buildPyramid(b, h, col, eCol, eW, showHidden, proj) {
   };
 }
 
-function _buildHexPrism(r, h, col, eCol, eW, showHidden, proj, rotH) {
-  const SIDES = 6, topY = h/2, botY = -h/2;
+function _buildNPrism(N, r, h, baseAngle, col, eCol, eW, showHidden, proj, rotH) {
+  const topY = h/2, botY = -h/2;
   const vTop = [], vBot = [];
-  for (let i = 0; i < SIDES; i++) {
-    const a = Math.PI/6 + Math.PI*2*i/SIDES;
+  for (let i = 0; i < N; i++) {
+    const a = baseAngle + Math.PI*2*i/N;
     vTop.push([r*Math.cos(a), topY, r*Math.sin(a)]);
     vBot.push([r*Math.cos(a), botY, r*Math.sin(a)]);
   }
-  const faceOrder = [];
-  for (let i = 0; i < SIDES; i++) {
-    const a  = Math.PI/6 + Math.PI*2*(i+0.5)/SIDES;
+  const faceVis = Array.from({length:N}, (_,i) => {
+    const a  = baseAngle + Math.PI*2*(i+0.5)/N;
     const va = a - rotH;
-    const vis = Math.cos(va)*_ISO_COS + Math.sin(va)*_ISO_COS;
-    faceOrder.push({i, vis});
-  }
-  faceOrder.sort((a,b) => a.vis - b.vis);
-  const hexFaces = [];
-  faceOrder.forEach(({i, vis}) => {
-    const ni = (i+1) % SIDES;
-    const role = vis > 0.2 ? 'right' : vis < -0.2 ? 'back' : 'left';
-    hexFaces.push({ v:[vBot[i],vBot[ni],vTop[ni],vTop[i]], role });
+    return (Math.cos(va) + Math.sin(va)) * _ISO_COS;
   });
-  hexFaces.push({ v:vBot.slice().reverse(), role:'bottom' });
-  hexFaces.push({ v:vTop, role:'top' });
+  const faceOrder = faceVis.map((vis,i) => ({i,vis})).sort((a,b) => a.vis - b.vis);
   let s = '';
-  hexFaces.forEach(f => s += _fillFace(f.v, col, f.role, proj));
-  hexFaces.forEach(f => s += _edgeFace(f.v, eCol, eW, proj));
-  const hexFaceCenters = [];
-  for (let i = 0; i < SIDES; i++) {
-    const a = Math.PI/6 + Math.PI*2*(i+0.5)/SIDES;
-    hexFaceCenters.push({ name:`Face ${i+1}`, c:[r*0.85*Math.cos(a), 0, r*0.85*Math.sin(a)], role:'front' });
+  // Fills back-to-front
+  faceOrder.forEach(({i, vis}) => {
+    const ni = (i+1) % N;
+    const role = vis > 0.2 ? 'right' : vis < -0.2 ? 'back' : 'left';
+    s += _fillFace([vBot[i],vBot[ni],vTop[ni],vTop[i]], col, role, proj);
+  });
+  s += _fillFace([...vBot].reverse(), col, 'bottom', proj);
+  s += _fillFace(vTop, col, 'top', proj);
+  // Edges: only visible side faces + top cap
+  faceOrder.forEach(({i, vis}) => {
+    if (vis >= 0) {
+      const ni = (i+1) % N;
+      s += _edgeFace([vBot[i],vBot[ni],vTop[ni],vTop[i]], eCol, eW, proj);
+    }
+  });
+  s += _edgeFace(vTop, eCol, eW, proj);
+  // Hidden dashes: hidden side-face bottom edges + hidden vertical edges
+  if (showHidden) {
+    faceOrder.forEach(({i, vis}) => {
+      if (vis < 0) {
+        const ni = (i+1) % N;
+        s += _seg(...proj(vBot[i]), ...proj(vBot[ni]), eCol, eW*0.7, '5,4');
+      }
+    });
+    for (let i = 0; i < N; i++) {
+      const prev = (i+N-1) % N;
+      if (faceVis[i] < 0 && faceVis[prev] < 0) {
+        s += _seg(...proj(vBot[i]), ...proj(vTop[i]), eCol, eW*0.7, '5,4');
+      }
+    }
   }
+  const sideFaceCenters = Array.from({length:N}, (_,i) => {
+    const a = baseAngle + Math.PI*2*(i+0.5)/N;
+    return { name:`Face ${i+1}`, c:[r*0.85*Math.cos(a), 0, r*0.85*Math.sin(a)], role:'front' };
+  });
   return {
     svg: s,
     dims: {
@@ -507,9 +531,15 @@ function _buildHexPrism(r, h, col, eCol, eW, showHidden, proj, rotH) {
     faces: [
       { name:'Top',    c:[0, topY, 0], role:'top'    },
       { name:'Bottom', c:[0, botY, 0], role:'bottom' },
-      ...hexFaceCenters,
+      ...sideFaceCenters,
     ],
   };
+}
+function _buildHexPrism(r, h, col, eCol, eW, showHidden, proj, rotH) {
+  return _buildNPrism(6, r, h, Math.PI/6, col, eCol, eW, showHidden, proj, rotH);
+}
+function _buildPentPrism(r, h, col, eCol, eW, showHidden, proj, rotH) {
+  return _buildNPrism(5, r, h, -Math.PI*3/4, col, eCol, eW, showHidden, proj, rotH);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -620,38 +650,39 @@ function _buildPyramidNet(b, h, col, eCol, eW, sc) {
   return {svg:parts.join('\n'), w:2*sl+B, h:2*sl+B, faces};
 }
 
-function _buildHexPrismNet(r, h, col, eCol, eW, sc) {
+function _buildNPrismNet(N, r, h, col, eCol, eW, sc) {
   const R=r*sc, H=h*sc;
-  const S=R, SIDES=6;
+  const S = 2*R*Math.sin(Math.PI/N);  // side length in pixels
+  const sW = 2*r*Math.sin(Math.PI/N); // side length in world units
+  const ry = R*Math.cos(Math.PI/N);   // apothem in pixels
+  const rowY = ry;
   const fc = role => _faceColor(col, role);
   const parts=[], faces=[];
-  // 6 rects in a row: each S wide, H tall
-  const ry=R*Math.sqrt(3)/2;  // hex apothem
-  const rowY=ry;
-  for (let i=0;i<SIDES;i++) {
+  for (let i=0; i<N; i++) {
     const x=i*S;
-    const role = i===0||i===5?'front':i===1||i===4?'left':'back';
+    const role = i===0||i===N-1?'front':i===1||i===N-2?'left':'back';
     parts.push(_netRect(x,rowY,S,H,fc(role),eCol,eW));
-    faces.push({name:`F${i+1}`,cx:x+S/2,cy:rowY+H/2, dims:_rectDims(x,rowY,S,H,r,h)});
+    faces.push({name:`Face ${i+1}`,cx:x+S/2,cy:rowY+H/2, dims:_rectDims(x,rowY,S,H,sW,h)});
   }
-  // Hexagon helper: flat-top, apothem ry, centered at cx,cy
-  const hexPts = (cx,cy) => {
-    const pts=[];
-    for (let i=0;i<SIDES;i++){const a=Math.PI/6+Math.PI*2*i/SIDES;pts.push([cx+R*Math.cos(a),cy+R*Math.sin(a)]);}
-    return pts;
-  };
-  // Top hex above rect 0
-  parts.push(_netPoly(hexPts(S/2, rowY-ry), fc('top'), eCol, eW));
+  const polyPts = (cx,cy) => Array.from({length:N}, (_,i) => {
+    const a = Math.PI/N + Math.PI*2*i/N;
+    return [cx+R*Math.cos(a), cy+R*Math.sin(a)];
+  });
+  parts.push(_netPoly(polyPts(S/2, rowY-ry), fc('top'), eCol, eW));
   faces.push({name:'Top', cx:S/2, cy:rowY-ry, dims:[
     {x1:S/2, y1:rowY-ry, x2:S/2+R, y2:rowY-ry, nx:0, ny:-1, val:_fD(r)},
   ]});
-  // Bottom hex below rect 0
-  parts.push(_netPoly(hexPts(S/2, rowY+H+ry), fc('bottom'), eCol, eW));
+  parts.push(_netPoly(polyPts(S/2, rowY+H+ry), fc('bottom'), eCol, eW));
   faces.push({name:'Bottom', cx:S/2, cy:rowY+H+ry, dims:[
     {x1:S/2, y1:rowY+H+ry, x2:S/2+R, y2:rowY+H+ry, nx:0, ny:1, val:_fD(r)},
   ]});
-  const totalW=SIDES*S, totalH=rowY+H+2*ry;
-  return {svg:parts.join('\n'), w:totalW, h:totalH, faces};
+  return {svg:parts.join('\n'), w:N*S, h:rowY+H+2*ry, faces};
+}
+function _buildHexPrismNet(r, h, col, eCol, eW, sc) {
+  return _buildNPrismNet(6, r, h, col, eCol, eW, sc);
+}
+function _buildPentPrismNet(r, h, col, eCol, eW, sc) {
+  return _buildNPrismNet(5, r, h, col, eCol, eW, sc);
 }
 
 function _buildCylinderNet(r, h, col, eCol, eW, sc) {
@@ -728,6 +759,8 @@ const _G3D_DIM_META = {
              { key:'h', label:'Height', ph:'h' }],
   hexprism: [{ key:'r', label:'Side',   ph:'a' },
              { key:'h', label:'Height', ph:'h' }],
+  pentprism:[{ key:'r', label:'Side',   ph:'a' },
+             { key:'h', label:'Height', ph:'h' }],
 };
 
 const _G3D_PARAM_META = {
@@ -746,6 +779,8 @@ const _G3D_PARAM_META = {
   pyramid:  [{ id:'g3d-b', lbl:'Base',   v:2,   min:0.5, max:20, step:0.5 },
              { id:'g3d-h', lbl:'Height', v:3,   min:0.5, max:20, step:0.5 }],
   hexprism: [{ id:'g3d-r', lbl:'Side',   v:1,   min:0.1, max:10, step:0.1 },
+             { id:'g3d-h', lbl:'Height', v:2,   min:0.5, max:20, step:0.5 }],
+  pentprism:[{ id:'g3d-r', lbl:'Side',   v:1,   min:0.1, max:10, step:0.1 },
              { id:'g3d-h', lbl:'Height', v:2,   min:0.5, max:20, step:0.5 }],
 };
 
@@ -777,58 +812,59 @@ const _G3D_SCHEMES = [
    Main generator  (called by generateShape router)
    ══════════════════════════════════════════════════════════════════════════ */
 
-function generateGeometry3D() {
-  const shape   = val('g3d-shape')      || 'cuboid';
-  const col     = val('g3d-color')      || '#4a90d9';
-  const eCol    = val('g3d-edge-color') || '#1a3a5a';
-  const eW      = Math.max(0.5, num('g3d-edge-w')  || 1.5);
-  const hidden  = chk('g3d-hidden');
+function _generateG3DObj(i) {
+  const P = id => `${id}-${i}`;
+  const shape   = val(P('g3d-shape'))      || 'cuboid';
+  const col     = val(P('g3d-color'))      || '#4a90d9';
+  const eCol    = val(P('g3d-edge-color')) || '#1a3a5a';
+  const eW      = Math.max(0.5, num(P('g3d-edge-w'))  || 1.5);
+  const hidden  = chk(P('g3d-hidden'));
   const cW      = Math.max(100, int('g3d-canvas-w') || 420);
   const cH      = Math.max(100, int('g3d-canvas-h') || 360);
   const bgNone  = chk('g3d-bg-none');
   const bgCol   = bgNone ? 'none' : (val('g3d-bg') || '#ffffff');
 
   // Net options
-  const netMode   = val('g3d-net-mode') || '3d';  // '3d' | 'both' | 'net'
-  const netGap    = Math.max(0, num('g3d-net-gap') || 30);
-  const netECol   = val('g3d-net-edge-color') || eCol;
-  const netEW     = Math.max(0.5, num('g3d-net-edge-w') || eW);
+  const netMode   = val(P('g3d-net-mode')) || '3d';
+  const netGap    = Math.max(0, num(P('g3d-net-gap')) || 30);
+  const netECol   = val(P('g3d-net-edge-color')) || eCol;
+  const netEW     = Math.max(0.5, num(P('g3d-net-edge-w')) || eW);
 
   // Face label options
-  const flEnabled = chk('g3d-fl-enable');
-  const flOn3d    = flEnabled && chk('g3d-fl-on3d') && (netMode === 'both' || netMode === '3d');
-  const flColor   = val('g3d-fl-color')  || '#1a1a1a';
-  const flSize    = Math.max(6, num('g3d-fl-size') || 13);
-  const flBold    = chk('g3d-fl-bold');
-  const flItal    = chk('g3d-fl-ital');
-  const flFont    = val('g3d-fl-font')   || 'Arial,sans-serif';
-  const flBg      = val('g3d-fl-bg')     || '';
-  const flBgOp    = num('g3d-fl-bg-op')  != null ? (num('g3d-fl-bg-op')||0) : 0.6;
+  const flEnabled = chk(P('g3d-fl-enable'));
+  const flOn3d    = flEnabled && chk(P('g3d-fl-on3d')) && (netMode === 'both' || netMode === '3d');
+  const flColor   = val(P('g3d-fl-color'))  || '#1a1a1a';
+  const flSize    = Math.max(6, num(P('g3d-fl-size')) || 13);
+  const flBold    = chk(P('g3d-fl-bold'));
+  const flItal    = chk(P('g3d-fl-ital'));
+  const flFont    = val(P('g3d-fl-font'))   || 'Arial,sans-serif';
+  const flBg      = val(P('g3d-fl-bg'))     || '';
+  const flBgOp    = num(P('g3d-fl-bg-op'))  != null ? (num(P('g3d-fl-bg-op'))||0) : 0.6;
 
   // Net face dimension arrow options
-  const nflEnabled = chk('g3d-nfl-enable');
-  const nflColor   = val('g3d-nfl-color') || '#cc3300';
-  const nflOff     = Math.max(4,   num('g3d-nfl-off') || 18);
-  const nflAw      = Math.max(0.5, num('g3d-nfl-aw')  || 1.2);
-  const nflAs      = Math.max(2,   num('g3d-nfl-as')  || 4);
-  const nflFs      = Math.max(6,   num('g3d-nfl-fs')  || 11);
-  const nflBold    = chk('g3d-nfl-bold');
-  const nflItal    = chk('g3d-nfl-ital');
-  const nflFont    = val('g3d-nfl-font')  || 'Arial,sans-serif';
+  const nflEnabled = chk(P('g3d-nfl-enable'));
+  const nflColor   = val(P('g3d-nfl-color')) || '#cc3300';
+  const nflOff     = Math.max(4,   num(P('g3d-nfl-off')) || 18);
+  const nflAw      = Math.max(0.5, num(P('g3d-nfl-aw'))  || 1.2);
+  const nflAs      = Math.max(2,   num(P('g3d-nfl-as'))  || 4);
+  const nflFs      = Math.max(6,   num(P('g3d-nfl-fs'))  || 11);
+  const nflBold    = chk(P('g3d-nfl-bold'));
+  const nflItal    = chk(P('g3d-nfl-ital'));
+  const nflFont    = val(P('g3d-nfl-font'))  || 'Arial,sans-serif';
 
-  const rotHDeg = num('g3d-rot-h') || 0;
-  const rotVDeg = num('g3d-rot-v') || 0;
-  const rotZDeg = num('g3d-rot-z') || 0;
+  const rotHDeg = num(P('g3d-rot-h')) || 0;
+  const rotVDeg = num(P('g3d-rot-v')) || 0;
+  const rotZDeg = num(P('g3d-rot-z')) || 0;
   const rotH    = rotHDeg * Math.PI / 180;
   const rotV    = rotVDeg * Math.PI / 180;
   const rotZ    = rotZDeg * Math.PI / 180;
 
-  const r = num('g3d-r') || 1.2;
-  const h = num('g3d-h') || 3;
-  const w = num('g3d-w') || 3;
-  const d = num('g3d-d') || 2;
-  const b = num('g3d-b') || 2;
-  const s = num('g3d-s') || 2;
+  const r = num(P('g3d-r')) || 1.2;
+  const h = num(P('g3d-h')) || 3;
+  const w = num(P('g3d-w')) || 3;
+  const d = num(P('g3d-d')) || 2;
+  const b = num(P('g3d-b')) || 2;
+  const s = num(P('g3d-s')) || 2;
 
   const maxDim = {
     cube:     s * 1.8,
@@ -839,6 +875,7 @@ function generateGeometry3D() {
     triprism: Math.max(b,h,d) * 1.6,
     pyramid:  Math.max(b,h) * 1.8,
     hexprism: Math.max(r*2,h) * 1.4,
+    pentprism:Math.max(r*2,h) * 1.4,
   }[shape] || 4;
 
   const sc = Math.min(cW, cH) * 0.46 / maxDim;
@@ -857,7 +894,8 @@ function generateGeometry3D() {
   else if (shape==='sphere')   result = _buildSphere(r,     col,eCol,eW,proj);
   else if (shape==='triprism') result = _buildTriPrism(b,h,d,col,eCol,eW,hidden,proj);
   else if (shape==='pyramid')  result = _buildPyramid(b,h,  col,eCol,eW,hidden,proj);
-  else if (shape==='hexprism') result = _buildHexPrism(r,h, col,eCol,eW,hidden,proj,rotH);
+  else if (shape==='hexprism')  result = _buildHexPrism(r,h,  col,eCol,eW,hidden,proj,rotH);
+  else if (shape==='pentprism') result = _buildPentPrism(r,h, col,eCol,eW,hidden,proj,rotH);
   else return errorSVG('Unknown shape: ' + shape);
 
   // ── Per-dimension annotations ────────────────────────────────────────────
@@ -865,35 +903,37 @@ function generateGeometry3D() {
   const markers  = new Map();
   const annParts = [];
 
+  const DK = (dm, sfx='') => `g3d-dim-${shape}-${dm.key}-${i}${sfx}`;
   for (const dm of dimMeta) {
-    if (!chk(`g3d-dim-${shape}-${dm.key}`)) continue;
-    const lbl    = val(`g3d-dim-${shape}-${dm.key}-lbl`)  || dm.ph;
+    if (!chk(DK(dm))) continue;
+    const lbl    = val(DK(dm, '-lbl'))  || dm.ph;
     const dimKey = (shape==='cube' && dm.key==='s') ? 'w' : dm.key;
     const dd     = result.dims[dimKey];
     if (!dd) continue;
-    const dColor    = val(`g3d-dim-${shape}-${dm.key}-color`)     || '#cc3300';
-    const dLblColor = val(`g3d-dim-${shape}-${dm.key}-lbl-color`) || dColor;
-    const dOff      = Math.max(5,   num(`g3d-dim-${shape}-${dm.key}-off`)     || 28);
-    const dLblOff   = num(`g3d-dim-${shape}-${dm.key}-lbl-off`) != 0
-                      ? num(`g3d-dim-${shape}-${dm.key}-lbl-off`) : 12;
-    const dLblPos   = val(`g3d-dim-${shape}-${dm.key}-lbl-pos`) || 'center';
-    const dFs       = Math.max(6,   num(`g3d-dim-${shape}-${dm.key}-fs`)      || 14);
-    const dAw       = Math.max(0.5, num(`g3d-dim-${shape}-${dm.key}-aw`)      || 1.5);
-    const dAs       = Math.max(2,   num(`g3d-dim-${shape}-${dm.key}-as`)      || 5);
-    const dFf       = val(`g3d-dim-${shape}-${dm.key}-ff`)   || 'Arial,sans-serif';
-    const dBold     = chk(`g3d-dim-${shape}-${dm.key}-bold`);
-    const dItal     = chk(`g3d-dim-${shape}-${dm.key}-ital`);
-    const dLblRot   = num(`g3d-dim-${shape}-${dm.key}-lbl-rot`) || 0;
-    const dTicks    = chk(`g3d-dim-${shape}-${dm.key}-ticks`);
-    const dTickW    = Math.max(0.3, num(`g3d-dim-${shape}-${dm.key}-tick-w`) || 1);
+    const dColor    = val(DK(dm, '-color'))     || '#cc3300';
+    const dLblColor = val(DK(dm, '-lbl-color')) || dColor;
+    const dOff      = Math.max(5,   num(DK(dm, '-off'))     || 28);
+    const dLblOff   = num(DK(dm, '-lbl-off')) != 0
+                      ? num(DK(dm, '-lbl-off')) : 12;
+    const dLblPos   = val(DK(dm, '-lbl-pos')) || 'center';
+    const dFs       = Math.max(6,   num(DK(dm, '-fs'))      || 14);
+    const dAw       = Math.max(0.5, num(DK(dm, '-aw'))      || 1.5);
+    const dAs       = Math.max(2,   num(DK(dm, '-as'))      || 5);
+    const dFf       = val(DK(dm, '-ff'))   || 'Arial,sans-serif';
+    const dBold     = chk(DK(dm, '-bold'));
+    const dItal     = chk(DK(dm, '-ital'));
+    const dLblRot   = num(DK(dm, '-lbl-rot')) || 0;
+    const dTicks    = chk(DK(dm, '-ticks'));
+    const dTickW    = Math.max(0.3, num(DK(dm, '-tick-w')) || 1);
     const dMid      = 'g3d_arr_' + dColor.replace('#','');
     if (!markers.has(dColor)) markers.set(dColor, { id: dMid, arrowSz: dAs });
+    const dDash = (dd.hidden && hidden) ? '4,3' : null;
     annParts.push(_dim(dd.p1, dd.p2, dd.norm, lbl, {
       arrowColor: dColor, labelColor: dLblColor,
       arrowW: dAw, fontSize: dFs, fontFamily: dFf,
       fontBold: dBold, fontItalic: dItal,
       offset: dOff, labelOffset: dLblOff, labelPos: dLblPos, labelRot: dLblRot,
-      showTicks: dTicks, tickW: dTickW, mid: dMid,
+      showTicks: dTicks, tickW: dTickW, mid: dMid, dash: dDash,
     }, proj, _track));
   }
 
@@ -908,7 +948,7 @@ function generateGeometry3D() {
 
   const _getFaceLabelText = (idx, defaultName) => {
     if (!flEnabled) return '';
-    const custom = val(`g3d-fl-face-${idx}`);
+    const custom = val(`g3d-fl-face-${i}-${idx}`);
     if (custom !== null && custom !== undefined && custom !== '') return custom;
     return AUTO_LETTERS[idx] || defaultName;
   };
@@ -952,7 +992,8 @@ function generateGeometry3D() {
     else if (shape==='cone')     netResult = _buildConeNet(r,h,     col,usedNetECol,usedNetEW,netSc);
     else if (shape==='triprism') netResult = _buildTriPrismNet(b,h,d,col,usedNetECol,usedNetEW,netSc);
     else if (shape==='pyramid')  netResult = _buildPyramidNet(b,h,  col,usedNetECol,usedNetEW,netSc);
-    else if (shape==='hexprism') netResult = _buildHexPrismNet(r,h, col,usedNetECol,usedNetEW,netSc);
+    else if (shape==='hexprism')  netResult = _buildHexPrismNet(r,h,  col,usedNetECol,usedNetEW,netSc);
+    else if (shape==='pentprism') netResult = _buildPentPrismNet(r,h, col,usedNetECol,usedNetEW,netSc);
     // sphere has no net
     if (netResult) {
       _netFaceIndexMap = new Map(netResult.faces.map((f,i) => [f.name, i]));
@@ -986,29 +1027,31 @@ function generateGeometry3D() {
       cx: Math.sqrt((r*netSc)*(r*netSc)+(h*netSc)*(h*netSc)),
       bcy: Math.sqrt((r*netSc)*(r*netSc)+(h*netSc)*(h*netSc))*2 + r*netSc + 4,
       slant: Math.sqrt((r*netSc)*(r*netSc)+(h*netSc)*(h*netSc)),
+      pentS: 2*r*netSc*Math.sin(Math.PI/5),
+      pentRy: r*netSc*Math.cos(Math.PI/5),
     };
     if (shape==='cube') { nd.W=s*netSc; nd.H=s*netSc; nd.D=s*netSc; }
 
     for (const dm of dimMeta) {
       const dimKeyForNet = shape==='cube' ? 's' : dm.key;
-      if (!chk(`g3d-dim-${shape}-${dm.key}-net`)) continue;
+      if (!chk(DK(dm, '-net'))) continue;
       const spec = _getNetDimSpec(shape, dimKeyForNet, nd);
       if (!spec) continue;
-      const lbl       = val(`g3d-dim-${shape}-${dm.key}-lbl`)  || dm.ph;
-      const dColor    = val(`g3d-dim-${shape}-${dm.key}-color`)     || '#cc3300';
-      const dLblColor = val(`g3d-dim-${shape}-${dm.key}-lbl-color`) || dColor;
-      const dOff      = Math.max(5, num(`g3d-dim-${shape}-${dm.key}-off`) || 22);
-      const dLblOff   = num(`g3d-dim-${shape}-${dm.key}-lbl-off`) != 0
-                        ? num(`g3d-dim-${shape}-${dm.key}-lbl-off`) : 10;
-      const dFs       = Math.max(6, num(`g3d-dim-${shape}-${dm.key}-fs`) || 12);
-      const dAw       = Math.max(0.5, num(`g3d-dim-${shape}-${dm.key}-aw`) || 1.2);
-      const dAs       = Math.max(2, num(`g3d-dim-${shape}-${dm.key}-as`) || 4);
-      const dFf       = val(`g3d-dim-${shape}-${dm.key}-ff`) || 'Arial,sans-serif';
-      const dBold     = chk(`g3d-dim-${shape}-${dm.key}-bold`);
-      const dItal     = chk(`g3d-dim-${shape}-${dm.key}-ital`);
-      const dLblRot   = num(`g3d-dim-${shape}-${dm.key}-lbl-rot`) || 0;
-      const dTicks    = chk(`g3d-dim-${shape}-${dm.key}-ticks`);
-      const dTickW    = Math.max(0.3, num(`g3d-dim-${shape}-${dm.key}-tick-w`) || 0.8);
+      const lbl       = val(DK(dm, '-lbl'))  || dm.ph;
+      const dColor    = val(DK(dm, '-color'))     || '#cc3300';
+      const dLblColor = val(DK(dm, '-lbl-color')) || dColor;
+      const dOff      = Math.max(5, num(DK(dm, '-off')) || 22);
+      const dLblOff   = num(DK(dm, '-lbl-off')) != 0
+                        ? num(DK(dm, '-lbl-off')) : 10;
+      const dFs       = Math.max(6, num(DK(dm, '-fs')) || 12);
+      const dAw       = Math.max(0.5, num(DK(dm, '-aw')) || 1.2);
+      const dAs       = Math.max(2, num(DK(dm, '-as')) || 4);
+      const dFf       = val(DK(dm, '-ff')) || 'Arial,sans-serif';
+      const dBold     = chk(DK(dm, '-bold'));
+      const dItal     = chk(DK(dm, '-ital'));
+      const dLblRot   = num(DK(dm, '-lbl-rot')) || 0;
+      const dTicks    = chk(DK(dm, '-ticks'));
+      const dTickW    = Math.max(0.3, num(DK(dm, '-tick-w')) || 0.8);
       const dMid      = 'g3d_arr_' + dColor.replace('#','');
       if (!markers.has(dColor)) markers.set(dColor, { id: dMid, arrowSz: dAs });
       netAnnParts.push(_dim2d(spec.x1,spec.y1, spec.x2,spec.y2, spec.nx,spec.ny, lbl, {
@@ -1034,10 +1077,10 @@ function generateGeometry3D() {
   let netDimLabelParts = '';
   if (nflEnabled && netResult && showNet) {
     netResult.faces.forEach((f, idx) => {
-      if (!chk(`g3d-nfl-en-${idx}`)) return;
+      if (!chk(`g3d-nfl-en-${i}-${idx}`)) return;
       if (!f.dims || f.dims.length === 0) return;
-      const usePerColor = chk(`g3d-nfl-use-color-${idx}`);
-      const faceColor = usePerColor ? (val(`g3d-nfl-color-${idx}`) || nflColor) : nflColor;
+      const usePerColor = chk(`g3d-nfl-use-color-${i}-${idx}`);
+      const faceColor = usePerColor ? (val(`g3d-nfl-color-${i}-${idx}`) || nflColor) : nflColor;
       const nflMid = 'g3d_arr_' + faceColor.replace('#','');
       if (!markers.has(faceColor)) markers.set(faceColor, { id: nflMid, arrowSz: nflAs });
       const mid = markers.get(faceColor).id;
@@ -1095,6 +1138,8 @@ function generateGeometry3D() {
     svg += '\n' + result.svg;
     svg += '\n' + annParts.join('');
     svg += '\n' + face3dParts;
+    // Drag overlay covers only the 3D portion
+    svg += `\n<rect x="${vx3}" y="${vy3}" width="${vw3}" height="${vh3}" fill="none" data-g3d-oi="${i}" style="cursor:grab" pointer-events="all"/>`;
     svg += '\n</g>';
     svg += `\n<g transform="translate(${netX + PAD*3},${offsetNy + PAD*3})">`;
     svg += '\n' + netGroup;
@@ -1110,8 +1155,56 @@ function generateGeometry3D() {
   svg += '\n' + result.svg;
   svg += '\n' + annParts.join('');
   svg += '\n' + face3dParts;
+  // Drag overlay for click-and-drag rotation
+  svg += `\n<rect x="${vx3}" y="${vy3}" width="${vw3}" height="${vh3}" fill="none" data-g3d-oi="${i}" style="cursor:grab" pointer-events="all"/>`;
   svg += '\n</svg>';
   return svg;
+}
+
+function generateGeometry3D() {
+  const count  = Math.max(1, Math.min(4, int('g3d-obj-count') || 1));
+  const layout = val('g3d-layout') || 'row';
+  const gap    = Math.max(0, num('g3d-obj-gap') || 20);
+  if (count === 1) return _generateG3DObj(0);
+
+  const svgs = [];
+  for (let k = 0; k < count; k++) svgs.push(_generateG3DObj(k));
+
+  const withPos = (s, x, y) => s.replace('<svg ', `<svg x="${x}" y="${y}" `);
+  const bgNone = chk('g3d-bg-none');
+  const bgCol  = bgNone ? 'none' : (val('g3d-bg') || '#ffffff');
+
+  if (layout === 'row') {
+    const ws = svgs.map(s => { const m = s.match(/width="(\d+(?:\.\d+)?)"/); return m ? +m[1] : 420; });
+    const hs = svgs.map(s => { const m = s.match(/height="(\d+(?:\.\d+)?)"/); return m ? +m[1] : 360; });
+    const totalW = ws.reduce((a,w) => a+w, 0) + gap*(count-1);
+    const totalH = Math.max(...hs);
+    let xOff = 0;
+    let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">`;
+    if (!bgNone) out += `\n<rect width="${totalW}" height="${totalH}" fill="${bgCol}"/>`;
+    for (let k = 0; k < count; k++) {
+      const yOff = Math.round((totalH - hs[k]) / 2);
+      out += '\n' + withPos(svgs[k], xOff, yOff);
+      xOff += ws[k] + gap;
+    }
+    out += '\n</svg>';
+    return out;
+  } else {
+    const ws = svgs.map(s => { const m = s.match(/width="(\d+(?:\.\d+)?)"/); return m ? +m[1] : 420; });
+    const hs = svgs.map(s => { const m = s.match(/height="(\d+(?:\.\d+)?)"/); return m ? +m[1] : 360; });
+    const totalW = Math.max(...ws);
+    const totalH = hs.reduce((a,h) => a+h, 0) + gap*(count-1);
+    let yOff = 0;
+    let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">`;
+    if (!bgNone) out += `\n<rect width="${totalW}" height="${totalH}" fill="${bgCol}"/>`;
+    for (let k = 0; k < count; k++) {
+      const xOff = Math.round((totalW - ws[k]) / 2);
+      out += '\n' + withPos(svgs[k], xOff, yOff);
+      yOff += hs[k] + gap;
+    }
+    out += '\n</svg>';
+    return out;
+  }
 }
 
 /* ── Net face dimension label helpers ──────────────────────────────────── */
@@ -1150,11 +1243,16 @@ function _g3dNetFaceDimText(shape, faceName, dims) {
     if (faceName==='Top'||faceName==='Bottom') return `r = ${fv(r)}`;
     return x2(r,h);
   }
+  if (shape==='pentprism') {
+    if (faceName==='Top'||faceName==='Bottom') return `r = ${fv(r)}`;
+    return x2(Math.round(2*r*Math.sin(Math.PI/5)*100)/100, h);
+  }
   return '';
 }
 
-function _g3dFillNetFaceInputs(shape) {
-  const wrap = document.getElementById('g3d-nfl-face-inputs');
+function _g3dFillNetFaceInputs(shape, oi=0) {
+  const P = id => `${id}-${oi}`;
+  const wrap = document.getElementById(P('g3d-nfl-face-inputs'));
   if (!wrap) return;
   const netBuilders = {
     cube:     () => _buildCuboidNet(2,2,2,'#000','#000',1,1),
@@ -1164,19 +1262,20 @@ function _g3dFillNetFaceInputs(shape) {
     triprism: () => _buildTriPrismNet(2,2,2,'#000','#000',1,1),
     pyramid:  () => _buildPyramidNet(2,3,'#000','#000',1,1),
     hexprism: () => _buildHexPrismNet(1,2,'#000','#000',1,1),
+    pentprism:() => _buildPentPrismNet(1,2,'#000','#000',1,1),
     sphere:   () => null,
   };
   const nb = netBuilders[shape];
   const nr = nb ? nb() : null;
   if (!nr) { wrap.innerHTML = '<em style="font-size:11px;color:var(--muted)">No net for sphere</em>'; return; }
 
-  wrap.innerHTML = nr.faces.map((f,i) => {
+  wrap.innerHTML = nr.faces.map((f, j) => {
     return `<div class="g3d-nfl-row">
   <div class="g3d-nfl-head">
-    <input type="checkbox" id="g3d-nfl-en-${i}" checked>
-    <label for="g3d-nfl-en-${i}" class="g3d-nfl-name">${f.name}</label>
-    <input type="color" id="g3d-nfl-color-${i}" value="#cc3300" title="Per-face colour override">
-    <label class="g3d-nfl-use-color-lbl"><input type="checkbox" id="g3d-nfl-use-color-${i}"> use</label>
+    <input type="checkbox" id="g3d-nfl-en-${oi}-${j}" checked>
+    <label for="g3d-nfl-en-${oi}-${j}" class="g3d-nfl-name">${f.name}</label>
+    <input type="color" id="g3d-nfl-color-${oi}-${j}" value="#cc3300" title="Per-face colour override">
+    <label class="g3d-nfl-use-color-lbl"><input type="checkbox" id="g3d-nfl-use-color-${oi}-${j}"> use</label>
   </div>
 </div>`;
   }).join('');
@@ -1193,48 +1292,50 @@ function _g3dFillNetFaceInputs(shape) {
 
 const _G3D_CHV = `<svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
-function _g3dSub(colorClass, title, bodyHTML, open) {
+function _g3dSub(colorClass, title, bodyHTML, open, extraId) {
+  const idAttr = extraId ? ` id="${extraId}"` : '';
   const cls = `sub-group collapsible${open ? '' : ' collapsed'} ${colorClass}`;
-  return `<div class="${cls}">
+  return `<div${idAttr} class="${cls}">
 <div class="sub-group-title">${title} ${_G3D_CHV}</div>
 <div class="sub-body">${bodyHTML}</div>
 </div>`;
 }
 
-function buildGeometry3DUI() {
-  const container = document.getElementById('params-geometry3d');
-  if (!container) return;
-
-  const shapeButtons = [
+function _g3dObjHTML(oi) {
+  const P = id => `${id}-${oi}`;
+  const shapeList = [
     ['cube','Cube'], ['cuboid','Cuboid'], ['cylinder','Cylinder'], ['cone','Cone'],
-    ['sphere','Sphere'], ['triprism','Tri. Prism'], ['pyramid','Pyramid'], ['hexprism','Hex Prism'],
-  ].map(([k,n]) =>
-    `<button class="g3d-sbtn${k==='cuboid'?' g3d-sbtn--active':''}" data-g3dshape="${k}">${n}</button>`
+    ['sphere','Sphere'], ['triprism','Tri. Prism'], ['pyramid','Pyramid'],
+    ['hexprism','Hex Prism'], ['pentprism','Pent Prism'],
+  ];
+  const shapeButtons = shapeList.map(([k,n]) =>
+    `<button class="g3d-sbtn${k==='cuboid'?' g3d-sbtn--active':''}" data-g3dshape="${k}" data-g3dobj="${oi}">${n}</button>`
   ).join('');
 
   const shapeHTML = `
-<div class="g3d-shape-grid" id="g3d-shape-grid">${shapeButtons}</div>
-<input type="hidden" id="g3d-shape" value="cuboid">`;
+<div class="g3d-shape-grid" id="${P('g3d-shape-grid')}">${shapeButtons}</div>
+<input type="hidden" id="${P('g3d-shape')}" value="cuboid">`;
 
-  const dimsHTML = `<div id="g3d-dim-params"></div>`;
+  const dimsHTML = `<div id="${P('g3d-dim-params')}"></div>`;
 
   const viewHTML = `
+<p class="hint" style="margin-bottom:6px">Drag the preview to rotate · use sliders for fine control</p>
 <div class="g3d-rot-row">
   <label>Horizontal</label>
-  <input type="range" id="g3d-rot-h" min="-180" max="180" step="5" value="0">
-  <span class="g3d-rot-val" id="g3d-rot-h-val">0</span>°
+  <input type="range" id="${P('g3d-rot-h')}" min="-180" max="180" step="1" value="0">
+  <span class="g3d-rot-val" id="${P('g3d-rot-h-val')}">0</span>°
 </div>
 <div class="g3d-rot-row">
   <label>Vertical tilt</label>
-  <input type="range" id="g3d-rot-v" min="-40" max="40" step="5" value="0">
-  <span class="g3d-rot-val" id="g3d-rot-v-val">0</span>°
+  <input type="range" id="${P('g3d-rot-v')}" min="-40" max="40" step="1" value="0">
+  <span class="g3d-rot-val" id="${P('g3d-rot-v-val')}">0</span>°
 </div>
 <div class="g3d-rot-row">
   <label>Roll (Z axis)</label>
-  <input type="range" id="g3d-rot-z" min="-180" max="180" step="5" value="0">
-  <span class="g3d-rot-val" id="g3d-rot-z-val">0</span>°
+  <input type="range" id="${P('g3d-rot-z')}" min="-180" max="180" step="1" value="0">
+  <span class="g3d-rot-val" id="${P('g3d-rot-z-val')}">0</span>°
 </div>
-<button id="g3d-rot-reset" class="btn-sm" style="margin-top:4px">Reset view</button>`;
+<button id="${P('g3d-rot-reset')}" class="btn-sm" style="margin-top:4px">Reset view</button>`;
 
   const stdSwatches = _G3D_STD_THEMES().map(sc =>
     `<div class="g3d-scheme-swatch" data-face="${sc.face}" data-edge="${sc.edge}" title="${sc.name}" style="background:${sc.face};border-color:${sc.edge}"></div>`
@@ -1247,34 +1348,20 @@ function buildGeometry3DUI() {
 <div class="g3d-scheme-grid g3d-scheme-grid--4" style="margin-bottom:6px">${stdSwatches}</div>
 <div class="row2" style="margin-bottom:6px">
   <div><label>More themes</label>
-    <select id="g3d-more-scheme">
+    <select id="${P('g3d-more-scheme')}">
       <option value="">— select —</option>
       ${moreOptions}
     </select>
   </div>
 </div>
 <div class="row3" style="margin-top:2px">
-  <div><label>Face color</label><input type="color" id="g3d-color" value="#4a90d9"></div>
-  <div><label>Edge color</label><input type="color" id="g3d-edge-color" value="#1a3a5a"></div>
-  <div><label>Edge width</label><input type="number" id="g3d-edge-w" value="1.5" min="0.5" max="8" step="0.5"></div>
+  <div><label>Face color</label><input type="color" id="${P('g3d-color')}" value="#4a90d9"></div>
+  <div><label>Edge color</label><input type="color" id="${P('g3d-edge-color')}" value="#1a3a5a"></div>
+  <div><label>Edge width</label><input type="number" id="${P('g3d-edge-w')}" value="1.5" min="0.5" max="8" step="0.5"></div>
 </div>
 <div class="check-row" style="margin-top:6px">
-  <input type="checkbox" id="g3d-hidden"><label for="g3d-hidden">Show hidden edges (dashed)</label>
-</div>
-<div class="row2" style="margin-top:6px">
-  <div><label>Background</label><input type="color" id="g3d-bg" value="#ffffff" disabled></div>
-  <div style="margin-top:18px"><div class="check-row"><input type="checkbox" id="g3d-bg-none" checked><label for="g3d-bg-none">Transparent</label></div></div>
+  <input type="checkbox" id="${P('g3d-hidden')}" checked><label for="${P('g3d-hidden')}">Show hidden edges (dashed)</label>
 </div>`;
-
-  const canvasHTML = `
-<div class="row2">
-  <div><label>Width (px)</label><input type="number" id="g3d-canvas-w" value="420" min="100" max="1200" step="10"></div>
-  <div><label>Height (px)</label><input type="number" id="g3d-canvas-h" value="360" min="100" max="1200" step="10"></div>
-</div>`;
-
-  const annotHTML = `
-<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Enable a dimension to show its annotation. Each dimension has its own settings.</div>
-<div id="g3d-dim-panel"></div>`;
 
   const netFontOptions = [
     ['Arial,sans-serif','Arial'],
@@ -1285,102 +1372,143 @@ function buildGeometry3DUI() {
     ['Courier New,monospace','Courier New'],
   ].map(([v,n])=>`<option value="${v}">${n}</option>`).join('');
 
+  const annotHTML = `
+<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Enable a dimension to show its annotation.</div>
+<div id="${P('g3d-dim-panel')}"></div>`;
+
   const netHTML = `
 <div class="row2" style="margin-bottom:6px">
   <div><label>Display</label>
-    <select id="g3d-net-mode">
+    <select id="${P('g3d-net-mode')}">
       <option value="3d" selected>3D only</option>
       <option value="both">3D + Net</option>
       <option value="net">Net only</option>
     </select>
   </div>
-  <div id="g3d-net-gap-wrap"><label>Gap (px)</label><input type="number" id="g3d-net-gap" value="30" min="0" max="200" step="5"></div>
+  <div id="${P('g3d-net-gap-wrap')}"><label>Gap (px)</label><input type="number" id="${P('g3d-net-gap')}" value="30" min="0" max="200" step="5"></div>
 </div>
-<div class="row2" style="margin-bottom:6px" id="g3d-net-style-row">
-  <div><label>Net edge color</label><input type="color" id="g3d-net-edge-color" value="#1a3a5a"></div>
-  <div><label>Net edge width</label><input type="number" id="g3d-net-edge-w" value="1.5" min="0.5" max="8" step="0.5"></div>
+<div class="row2" style="margin-bottom:6px" id="${P('g3d-net-style-row')}">
+  <div><label>Net edge color</label><input type="color" id="${P('g3d-net-edge-color')}" value="#1a3a5a"></div>
+  <div><label>Net edge width</label><input type="number" id="${P('g3d-net-edge-w')}" value="1.5" min="0.5" max="8" step="0.5"></div>
 </div>
-
 <div class="g3d-dim-sub-head" style="margin-top:8px">Face Labels</div>
 <div class="check-row" style="margin-bottom:6px">
-  <input type="checkbox" id="g3d-fl-enable">
-  <label for="g3d-fl-enable">Show face labels</label>
+  <input type="checkbox" id="${P('g3d-fl-enable')}">
+  <label for="${P('g3d-fl-enable')}">Show face labels</label>
 </div>
-<div id="g3d-fl-body" style="display:none">
+<div id="${P('g3d-fl-body')}" style="display:none">
   <div class="check-row" style="margin-bottom:6px">
-    <input type="checkbox" id="g3d-fl-on3d">
-    <label for="g3d-fl-on3d">Also show on 3D shape</label>
+    <input type="checkbox" id="${P('g3d-fl-on3d')}">
+    <label for="${P('g3d-fl-on3d')}">Also show on 3D shape</label>
   </div>
   <div class="row3" style="margin-bottom:4px">
-    <div><label>Color</label><input type="color" id="g3d-fl-color" value="#1a1a1a"></div>
-    <div><label>Size</label><input type="number" id="g3d-fl-size" value="13" min="6" max="40" step="1"></div>
-    <div><label>Background</label><input type="color" id="g3d-fl-bg" value="#ffffff"></div>
+    <div><label>Color</label><input type="color" id="${P('g3d-fl-color')}" value="#1a1a1a"></div>
+    <div><label>Size</label><input type="number" id="${P('g3d-fl-size')}" value="13" min="6" max="40" step="1"></div>
+    <div><label>Background</label><input type="color" id="${P('g3d-fl-bg')}" value="#ffffff"></div>
   </div>
   <div class="row2" style="margin-bottom:4px">
-    <div><label>Bg opacity</label><input type="number" id="g3d-fl-bg-op" value="0" min="0" max="1" step="0.05"></div>
-    <div><label>Font</label><select id="g3d-fl-font">${netFontOptions}</select></div>
+    <div><label>Bg opacity</label><input type="number" id="${P('g3d-fl-bg-op')}" value="0" min="0" max="1" step="0.05"></div>
+    <div><label>Font</label><select id="${P('g3d-fl-font')}">${netFontOptions}</select></div>
   </div>
   <div style="display:flex;gap:14px;margin-bottom:8px;align-items:center">
-    <div class="check-row"><input type="checkbox" id="g3d-fl-bold"><label for="g3d-fl-bold">Bold</label></div>
-    <div class="check-row"><input type="checkbox" id="g3d-fl-ital"><label for="g3d-fl-ital">Italic</label></div>
+    <div class="check-row"><input type="checkbox" id="${P('g3d-fl-bold')}"><label for="${P('g3d-fl-bold')}">Bold</label></div>
+    <div class="check-row"><input type="checkbox" id="${P('g3d-fl-ital')}"><label for="${P('g3d-fl-ital')}">Italic</label></div>
   </div>
   <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Custom labels (leave blank for A, B, C…):</div>
-  <div id="g3d-fl-face-inputs"></div>
+  <div id="${P('g3d-fl-face-inputs')}"></div>
 </div>
-
 <div class="g3d-dim-sub-head" style="margin-top:10px">Face Dimension Arrows</div>
 <div class="check-row" style="margin-bottom:6px">
-  <input type="checkbox" id="g3d-nfl-enable">
-  <label for="g3d-nfl-enable">Show dimension arrows on faces</label>
+  <input type="checkbox" id="${P('g3d-nfl-enable')}">
+  <label for="${P('g3d-nfl-enable')}">Show dimension arrows on faces</label>
 </div>
-<div id="g3d-nfl-body" style="display:none">
+<div id="${P('g3d-nfl-body')}" style="display:none">
   <div class="row3" style="margin-bottom:4px">
-    <div><label>Color</label><input type="color" id="g3d-nfl-color" value="#cc3300"></div>
-    <div><label>Offset (px)</label><input type="number" id="g3d-nfl-off" value="18" min="4" max="80" step="2"></div>
-    <div><label>Font size</label><input type="number" id="g3d-nfl-fs" value="11" min="6" max="30" step="1"></div>
+    <div><label>Color</label><input type="color" id="${P('g3d-nfl-color')}" value="#cc3300"></div>
+    <div><label>Offset (px)</label><input type="number" id="${P('g3d-nfl-off')}" value="18" min="4" max="80" step="2"></div>
+    <div><label>Font size</label><input type="number" id="${P('g3d-nfl-fs')}" value="11" min="6" max="30" step="1"></div>
   </div>
   <div class="row2" style="margin-bottom:4px">
-    <div><label>Arrow width</label><input type="number" id="g3d-nfl-aw" value="1.2" min="0.5" max="6" step="0.5"></div>
-    <div><label>Head size</label><input type="number" id="g3d-nfl-as" value="4" min="2" max="12" step="0.5"></div>
+    <div><label>Arrow width</label><input type="number" id="${P('g3d-nfl-aw')}" value="1.2" min="0.5" max="6" step="0.5"></div>
+    <div><label>Head size</label><input type="number" id="${P('g3d-nfl-as')}" value="4" min="2" max="12" step="0.5"></div>
   </div>
   <div class="row2" style="margin-bottom:4px">
-    <div><label>Font</label><select id="g3d-nfl-font">${netFontOptions}</select></div>
+    <div><label>Font</label><select id="${P('g3d-nfl-font')}">${netFontOptions}</select></div>
     <div style="display:flex;gap:10px;align-items:flex-end;padding-bottom:2px">
-      <div class="check-row"><input type="checkbox" id="g3d-nfl-bold"><label for="g3d-nfl-bold">Bold</label></div>
-      <div class="check-row"><input type="checkbox" id="g3d-nfl-ital"><label for="g3d-nfl-ital">Italic</label></div>
+      <div class="check-row"><input type="checkbox" id="${P('g3d-nfl-bold')}"><label for="${P('g3d-nfl-bold')}">Bold</label></div>
+      <div class="check-row"><input type="checkbox" id="${P('g3d-nfl-ital')}"><label for="${P('g3d-nfl-ital')}">Italic</label></div>
     </div>
   </div>
   <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Per-face enable + optional color override:</div>
-  <div id="g3d-nfl-face-inputs"></div>
+  <div id="${P('g3d-nfl-face-inputs')}"></div>
 </div>`;
 
-  container.innerHTML =
-    _g3dSub('sub-group--g3d-shape',  'Shape',              shapeHTML,  true)  +
-    _g3dSub('sub-group--g3d-dims',   'Dimensions',         dimsHTML,   true)  +
-    _g3dSub('sub-group--g3d-view',   'View & Rotation',    viewHTML,   false) +
-    _g3dSub('sub-group--g3d-appear', 'Appearance',         appearHTML, false) +
-    _g3dSub('sub-group--g3d-canvas', 'Canvas',             canvasHTML, false) +
-    _g3dSub('sub-group--g3d-annot',  'Dimension Arrows',   annotHTML,  false) +
-    _g3dSub('sub-group--g3d-net',    'Net',                netHTML,    false);
+  const inner =
+    _g3dSub('sub-group--g3d-shape',  'Shape',            shapeHTML,  true)  +
+    _g3dSub('sub-group--g3d-dims',   'Dimensions',       dimsHTML,   true)  +
+    _g3dSub('sub-group--g3d-view',   'View & Rotation',  viewHTML,   false) +
+    _g3dSub('sub-group--g3d-appear', 'Appearance',       appearHTML, false) +
+    _g3dSub('sub-group--g3d-annot',  'Dimension Arrows', annotHTML,  false) +
+    _g3dSub('sub-group--g3d-net',    'Net',              netHTML,    false);
 
-  _g3dFillDimPanel('cuboid');
+  const displayStyle = oi > 0 ? ' style="display:none"' : '';
+  return `<div id="g3d-obj-${oi}" class="sub-group collapsible collapsed sub-group--g3d-obj${oi}"${displayStyle}>
+<div class="sub-group-title">Object ${oi+1} ${_G3D_CHV}</div>
+<div class="sub-body">${inner}</div>
+</div>`;
+}
+
+function buildGeometry3DUI() {
+  const container = document.getElementById('params-geometry3d');
+  if (!container) return;
+
+  const globalHTML = `
+<input type="hidden" id="g3d-obj-count" value="1">
+<div class="count-row" style="margin-bottom:6px">
+  <label>Objects</label>
+  <div class="count-btns" id="g3d-count-btns">
+    <button class="count-btn active" data-count="1">1</button>
+    <button class="count-btn" data-count="2">2</button>
+    <button class="count-btn" data-count="3">3</button>
+    <button class="count-btn" data-count="4">4</button>
+  </div>
+  <label style="margin-left:6px">Layout</label>
+  <select id="g3d-layout" style="width:68px">
+    <option value="row">Row</option>
+    <option value="col">Column</option>
+  </select>
+  <label>Gap</label>
+  <input type="number" id="g3d-obj-gap" value="20" min="0" max="300" step="5" style="width:52px">
+</div>
+<div class="row2" style="margin-bottom:4px">
+  <div><label>Width (px)</label><input type="number" id="g3d-canvas-w" value="420" min="100" max="1200" step="10"></div>
+  <div><label>Height (px)</label><input type="number" id="g3d-canvas-h" value="360" min="100" max="1200" step="10"></div>
+</div>
+<div class="row2" style="margin-bottom:8px">
+  <div><label>Background</label><input type="color" id="g3d-bg" value="#ffffff" disabled></div>
+  <div style="margin-top:18px"><div class="check-row"><input type="checkbox" id="g3d-bg-none" checked><label for="g3d-bg-none">Transparent</label></div></div>
+</div>`;
+
+  container.innerHTML = globalHTML + [0,1,2,3].map(_g3dObjHTML).join('\n');
+
+  for (let i = 0; i < 4; i++) _g3dFillDimPanel('cuboid', i);
   _g3dWireUI();
 }
 
-function _g3dFillDimPanel(shape) {
-  // Shape dimension inputs
-  const wrap = document.getElementById('g3d-dim-params');
+function _g3dFillDimPanel(shape, oi=0) {
+  const P = id => `${id}-${oi}`;
+
+  const wrap = document.getElementById(P('g3d-dim-params'));
   if (wrap) {
     const params = _G3D_PARAM_META[shape] || [];
     wrap.innerHTML = `<div class="row3">${params.map(p =>
-      `<div><label>${p.lbl}</label><input type="number" id="${p.id}" value="${p.v}" min="${p.min}" max="${p.max}" step="${p.step}"></div>`
+      `<div><label>${p.lbl}</label><input type="number" id="${P(p.id)}" value="${p.v}" min="${p.min}" max="${p.max}" step="${p.step}"></div>`
     ).join('')}</div>`;
     wrap.querySelectorAll('input').forEach(el =>
       el.addEventListener('input', () => { if (typeof render==='function') render(); }));
   }
 
-  // Per-dimension annotation sections
-  const panel = document.getElementById('g3d-dim-panel');
+  const panel = document.getElementById(P('g3d-dim-panel'));
   if (!panel) return;
   const defs = _G3D_DIM_META[shape] || [];
   const fontOptions = [
@@ -1393,9 +1521,8 @@ function _g3dFillDimPanel(shape) {
   ].map(([v,n]) => `<option value="${v}">${n}</option>`).join('');
 
   panel.innerHTML = defs.map(dm => {
-    const k = `g3d-dim-${shape}-${dm.key}`;
-    const hasNet = ['cube','cuboid','cylinder','cone','triprism','pyramid','hexprism'].includes(shape)
-                 && shape !== 'sphere';
+    const k = `g3d-dim-${shape}-${dm.key}-${oi}`;
+    const hasNet = ['cube','cuboid','cylinder','cone','triprism','pyramid','hexprism','pentprism'].includes(shape);
     const netChk = hasNet
       ? `<div class="check-row" style="margin-left:auto;font-size:10px"><input type="checkbox" id="${k}-net"><label for="${k}-net">On net</label></div>`
       : '';
@@ -1420,7 +1547,6 @@ function _g3dFillDimPanel(shape) {
       <div class="check-row" style="margin-top:18px"><input type="checkbox" id="${k}-ticks" checked><label for="${k}-ticks">Extension lines</label></div>
       <div><label>Line thickness</label><input type="number" id="${k}-tick-w" value="1" min="0.3" max="6" step="0.2"></div>
     </div>
-
     <div class="g3d-dim-sub-head" style="margin-top:8px">Label</div>
     <div class="row2">
       <div><label>Text</label><input type="text" id="${k}-lbl" class="g3d-lbl-inp" placeholder="${dm.ph}" maxlength="16"></div>
@@ -1454,15 +1580,14 @@ function _g3dFillDimPanel(shape) {
     el.addEventListener('change', () => { if (typeof render==='function') render(); });
   });
 
-  _g3dFillFaceInputs(shape);
-  _g3dFillNetFaceInputs(shape);
+  _g3dFillFaceInputs(shape, oi);
+  _g3dFillNetFaceInputs(shape, oi);
 }
 
-// Face label per-face custom text inputs — re-built when shape changes
-function _g3dFillFaceInputs(shape) {
-  const wrap = document.getElementById('g3d-fl-face-inputs');
+function _g3dFillFaceInputs(shape, oi=0) {
+  const P = id => `${id}-${oi}`;
+  const wrap = document.getElementById(P('g3d-fl-face-inputs'));
   if (!wrap) return;
-  // Build a temporary net to find face names
   const netBuilders = {
     cube:     () => _buildCuboidNet(2,2,2,'#000','#000',1,1),
     cuboid:   () => _buildCuboidNet(3,2,2,'#000','#000',1,1),
@@ -1471,6 +1596,7 @@ function _g3dFillFaceInputs(shape) {
     triprism: () => _buildTriPrismNet(2,2,2,'#000','#000',1,1),
     pyramid:  () => _buildPyramidNet(2,3,'#000','#000',1,1),
     hexprism: () => _buildHexPrismNet(1,2,'#000','#000',1,1),
+    pentprism:() => _buildPentPrismNet(1,2,'#000','#000',1,1),
     sphere:   () => null,
   };
   const nb = netBuilders[shape];
@@ -1479,46 +1605,128 @@ function _g3dFillFaceInputs(shape) {
   const AUTO = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const cols = Math.min(nr.faces.length, 4);
   wrap.innerHTML = `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:4px 6px">` +
-    nr.faces.map((f,i) => `<div><label style="font-size:10px">${f.name} (${AUTO[i]||'?'})</label><input type="text" id="g3d-fl-face-${i}" placeholder="${AUTO[i]||f.name}" maxlength="8" style="font-size:11px;padding:2px 4px"></div>`).join('') +
-    '</div>';
+    nr.faces.map((f, j) =>
+      `<div><label style="font-size:10px">${f.name} (${AUTO[j]||'?'})</label><input type="text" id="g3d-fl-face-${oi}-${j}" placeholder="${AUTO[j]||f.name}" maxlength="8" style="font-size:11px;padding:2px 4px"></div>`
+    ).join('') + '</div>';
   wrap.querySelectorAll('input').forEach(el => {
     el.addEventListener('input', () => { if (typeof render==='function') render(); });
   });
 }
 
-function _g3dWireUI() {
-  // Shape selector buttons
-  document.querySelectorAll('.g3d-sbtn').forEach(btn => {
+function _g3dWireObj(oi) {
+  const P = id => `${id}-${oi}`;
+
+  // Shape selector buttons scoped to this object
+  document.querySelectorAll(`#${P('g3d-shape-grid')} .g3d-sbtn`).forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.g3d-sbtn').forEach(b => b.classList.remove('g3d-sbtn--active'));
+      document.querySelectorAll(`#${P('g3d-shape-grid')} .g3d-sbtn`).forEach(b => b.classList.remove('g3d-sbtn--active'));
       btn.classList.add('g3d-sbtn--active');
       const shape = btn.dataset.g3dshape;
-      document.getElementById('g3d-shape').value = shape;
-      _g3dFillDimPanel(shape);
+      const si = document.getElementById(P('g3d-shape'));
+      if (si) si.value = shape;
+      _g3dFillDimPanel(shape, oi);
       if (typeof render==='function') render();
     });
   });
 
-  // Standard scheme swatches + More themes dropdown
-  const _applyG3dScheme = (face, edge) => {
-    const fc = document.getElementById('g3d-color');
-    const ec = document.getElementById('g3d-edge-color');
+  // Scheme swatches scoped to this object section
+  const _applyScheme = (face, edge) => {
+    const fc = document.getElementById(P('g3d-color'));
+    const ec = document.getElementById(P('g3d-edge-color'));
     if (fc) fc.value = face;
     if (ec) ec.value = edge;
     if (typeof render==='function') render();
   };
-  document.querySelectorAll('.g3d-scheme-swatch').forEach(sw =>
-    sw.addEventListener('click', () => _applyG3dScheme(sw.dataset.face, sw.dataset.edge))
+  document.querySelectorAll(`#g3d-obj-${oi} .g3d-scheme-swatch`).forEach(sw =>
+    sw.addEventListener('click', () => _applyScheme(sw.dataset.face, sw.dataset.edge))
   );
-  document.getElementById('g3d-more-scheme')?.addEventListener('change', e => {
-    const v = e.target.value;
-    if (!v) return;
-    const [face, edge] = v.split('|');
-    e.target.value = '';
-    _applyG3dScheme(face, edge);
+  document.getElementById(P('g3d-more-scheme'))?.addEventListener('change', e => {
+    const v = e.target.value; if (!v) return;
+    const [face, edge] = v.split('|'); e.target.value = '';
+    _applyScheme(face, edge);
   });
 
-  // Transparent bg toggle
+  // Rotation sliders
+  ['h', 'v', 'z'].forEach(ax => {
+    const range = document.getElementById(P(`g3d-rot-${ax}`));
+    const disp  = document.getElementById(P(`g3d-rot-${ax}-val`));
+    if (range && disp) range.addEventListener('input', () => { disp.textContent = range.value; if (typeof render==='function') render(); });
+  });
+  document.getElementById(P('g3d-rot-reset'))?.addEventListener('click', () => {
+    ['h','v','z'].forEach(ax => {
+      const r = document.getElementById(P(`g3d-rot-${ax}`));
+      const d = document.getElementById(P(`g3d-rot-${ax}-val`));
+      if (r) r.value = '0'; if (d) d.textContent = '0';
+    });
+    if (typeof render==='function') render();
+  });
+
+  // Static inputs
+  [
+    P('g3d-color'), P('g3d-edge-color'), P('g3d-edge-w'), P('g3d-hidden'),
+    P('g3d-net-mode'), P('g3d-net-gap'), P('g3d-net-edge-color'), P('g3d-net-edge-w'),
+    P('g3d-fl-enable'), P('g3d-fl-on3d'), P('g3d-fl-color'), P('g3d-fl-size'),
+    P('g3d-fl-bg'), P('g3d-fl-bg-op'), P('g3d-fl-font'), P('g3d-fl-bold'), P('g3d-fl-ital'),
+    P('g3d-nfl-enable'), P('g3d-nfl-color'), P('g3d-nfl-off'), P('g3d-nfl-fs'),
+    P('g3d-nfl-aw'), P('g3d-nfl-as'), P('g3d-nfl-font'), P('g3d-nfl-bold'), P('g3d-nfl-ital'),
+  ].forEach(id => {
+    const el = document.getElementById(id); if (!el) return;
+    el.addEventListener('input',  () => { if (typeof render==='function') render(); });
+    el.addEventListener('change', () => { if (typeof render==='function') render(); });
+  });
+
+  // Net mode → show/hide gap / style row
+  const _updateNetUI = () => {
+    const mode = document.getElementById(P('g3d-net-mode'))?.value;
+    const gw = document.getElementById(P('g3d-net-gap-wrap'));
+    const sr = document.getElementById(P('g3d-net-style-row'));
+    if (gw) gw.style.display = mode === 'both' ? '' : 'none';
+    if (sr) sr.style.display = mode === '3d'   ? 'none' : '';
+  };
+  document.getElementById(P('g3d-net-mode'))?.addEventListener('change', () => { _updateNetUI(); if (typeof render==='function') render(); });
+  _updateNetUI();
+
+  // Face label toggle
+  const _updateFLUI = () => {
+    const body = document.getElementById(P('g3d-fl-body'));
+    if (body) body.style.display = document.getElementById(P('g3d-fl-enable'))?.checked ? '' : 'none';
+  };
+  document.getElementById(P('g3d-fl-enable'))?.addEventListener('change', () => { _updateFLUI(); if (typeof render==='function') render(); });
+  _updateFLUI();
+
+  // Net face dim label toggle
+  const _updateNFLUI = () => {
+    const body = document.getElementById(P('g3d-nfl-body'));
+    if (body) body.style.display = document.getElementById(P('g3d-nfl-enable'))?.checked ? '' : 'none';
+  };
+  document.getElementById(P('g3d-nfl-enable'))?.addEventListener('change', () => { _updateNFLUI(); if (typeof render==='function') render(); });
+  _updateNFLUI();
+}
+
+function _g3dWireUI() {
+  // Count buttons
+  document.querySelectorAll('#g3d-count-btns .count-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#g3d-count-btns .count-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const count = parseInt(btn.dataset.count);
+      const ci = document.getElementById('g3d-obj-count');
+      if (ci) ci.value = count;
+      for (let i = 0; i < 4; i++) {
+        const el = document.getElementById(`g3d-obj-${i}`);
+        if (el) el.style.display = i < count ? '' : 'none';
+      }
+      if (typeof render==='function') render();
+    });
+  });
+
+  // Global controls
+  ['g3d-canvas-w','g3d-canvas-h','g3d-bg','g3d-layout','g3d-obj-gap'].forEach(id => {
+    const el = document.getElementById(id); if (!el) return;
+    el.addEventListener('input',  () => { if (typeof render==='function') render(); });
+    el.addEventListener('change', () => { if (typeof render==='function') render(); });
+  });
+
   const bgNoneEl = document.getElementById('g3d-bg-none');
   const bgPickEl = document.getElementById('g3d-bg');
   if (bgNoneEl && bgPickEl) {
@@ -1528,71 +1736,58 @@ function _g3dWireUI() {
     });
   }
 
-  // Rotation sliders — update live display and render
-  ['h', 'v', 'z'].forEach(ax => {
-    const range = document.getElementById(`g3d-rot-${ax}`);
-    const disp  = document.getElementById(`g3d-rot-${ax}-val`);
-    if (range && disp) {
-      range.addEventListener('input', () => {
-        disp.textContent = range.value;
-        if (typeof render==='function') render();
+  for (let i = 0; i < 4; i++) _g3dWireObj(i);
+
+  // ── Drag-to-rotate on the SVG preview ──────────────────────────────────
+  const _previewPane = document.getElementById('svgPreview');
+  if (!_previewPane) return;
+
+  let _g3dDrag = null;
+  let _g3dFramePending = false;
+
+  _previewPane.addEventListener('mousedown', e => {
+    if (typeof currentShape === 'undefined' || currentShape !== 'geometry3d') return;
+    const target = e.target.closest('[data-g3d-oi]');
+    if (!target) return;
+    const oi = parseInt(target.dataset.g3dOi, 10);
+    const rH = document.getElementById(`g3d-rot-h-${oi}`);
+    const rV = document.getElementById(`g3d-rot-v-${oi}`);
+    if (!rH || !rV) return;
+    _g3dDrag = {
+      oi,
+      x0: e.clientX, y0: e.clientY,
+      h0: parseFloat(rH.value), v0: parseFloat(rV.value)
+    };
+    _previewPane.classList.add('g3d-rotating');
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!_g3dDrag) return;
+    const { oi, x0, y0, h0, v0 } = _g3dDrag;
+    const rH = document.getElementById(`g3d-rot-h-${oi}`);
+    const rV = document.getElementById(`g3d-rot-v-${oi}`);
+    const dH = document.getElementById(`g3d-rot-h-val-${oi}`);
+    const dV = document.getElementById(`g3d-rot-v-val-${oi}`);
+    if (!rH || !rV) return;
+    const dx = e.clientX - x0;
+    const dy = e.clientY - y0;
+    const newH = Math.max(-180, Math.min(180, Math.round(h0 + dx * 0.5)));
+    const newV = Math.max(-40,  Math.min(40,  Math.round(v0 - dy * 0.3)));
+    rH.value = String(newH); if (dH) dH.textContent = String(newH);
+    rV.value = String(newV); if (dV) dV.textContent = String(newV);
+    if (!_g3dFramePending) {
+      _g3dFramePending = true;
+      requestAnimationFrame(() => {
+        _g3dFramePending = false;
+        if (typeof render === 'function') render();
       });
     }
   });
 
-  // Reset view
-  document.getElementById('g3d-rot-reset')?.addEventListener('click', () => {
-    ['h','v','z'].forEach(ax => {
-      const r = document.getElementById(`g3d-rot-${ax}`);
-      const d = document.getElementById(`g3d-rot-${ax}-val`);
-      if (r) r.value = '0';
-      if (d) d.textContent = '0';
-    });
-    if (typeof render==='function') render();
+  document.addEventListener('mouseup', () => {
+    if (!_g3dDrag) return;
+    _g3dDrag = null;
+    _previewPane.classList.remove('g3d-rotating');
   });
-
-  // Wire all static inputs
-  [
-    'g3d-color','g3d-edge-color','g3d-edge-w','g3d-hidden',
-    'g3d-bg','g3d-canvas-w','g3d-canvas-h',
-    'g3d-net-mode','g3d-net-gap','g3d-net-edge-color','g3d-net-edge-w',
-    'g3d-fl-enable','g3d-fl-on3d','g3d-fl-color','g3d-fl-size',
-    'g3d-fl-bg','g3d-fl-bg-op','g3d-fl-font','g3d-fl-bold','g3d-fl-ital',
-    'g3d-nfl-enable','g3d-nfl-color','g3d-nfl-off','g3d-nfl-fs',
-    'g3d-nfl-aw','g3d-nfl-as','g3d-nfl-font','g3d-nfl-bold','g3d-nfl-ital',
-  ].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener('input',  () => { if (typeof render==='function') render(); });
-    el.addEventListener('change', () => { if (typeof render==='function') render(); });
-  });
-
-  // Net mode → show/hide gap input
-  const _updateNetUI = () => {
-    const mode = document.getElementById('g3d-net-mode')?.value;
-    const gapWrap  = document.getElementById('g3d-net-gap-wrap');
-    const styleRow = document.getElementById('g3d-net-style-row');
-    if (gapWrap)  gapWrap.style.display  = mode === 'both' ? '' : 'none';
-    if (styleRow) styleRow.style.display = mode === '3d'   ? 'none' : '';
-  };
-  document.getElementById('g3d-net-mode')?.addEventListener('change', () => { _updateNetUI(); if (typeof render==='function') render(); });
-  _updateNetUI();
-
-  // Face label enable toggle
-  const _updateFLUI = () => {
-    const on = document.getElementById('g3d-fl-enable')?.checked;
-    const body = document.getElementById('g3d-fl-body');
-    if (body) body.style.display = on ? '' : 'none';
-  };
-  document.getElementById('g3d-fl-enable')?.addEventListener('change', () => { _updateFLUI(); if (typeof render==='function') render(); });
-  _updateFLUI();
-
-  // Net face dim label enable toggle
-  const _updateNFLUI = () => {
-    const on = document.getElementById('g3d-nfl-enable')?.checked;
-    const body = document.getElementById('g3d-nfl-body');
-    if (body) body.style.display = on ? '' : 'none';
-  };
-  document.getElementById('g3d-nfl-enable')?.addEventListener('change', () => { _updateNFLUI(); if (typeof render==='function') render(); });
-  _updateNFLUI();
 }

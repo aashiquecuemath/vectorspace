@@ -299,6 +299,14 @@ function wireAll() {
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && drawMode) exitDrawMode();
+    if (e.key === 'Escape') _ovEditClose?.();
+  });
+
+  // Close element editor when clicking outside it
+  document.addEventListener('mousedown', e => {
+    const panel = $('ov-edit-panel');
+    if (!panel || panel.style.display === 'none') return;
+    if (!panel.contains(e.target)) _ovEditClose?.();
   });
 
   /* ── Text overlay ── */

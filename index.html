@@ -3526,9 +3526,15 @@ Books read,15,8,12,20,11,18,9</textarea>
     <div class="preview-card-title">
       Preview
       <span class="hint" style="display:inline;text-transform:none;letter-spacing:0;font-weight:400">
-        — dashed border = canvas · click cells to shade · drag text &amp; images
+        — dashed border = canvas · click cells to shade · drag overlays · double-click to edit
       </span>
       <span class="svg-dims-badge" id="svg-dims"></span>
+      <div class="zoom-controls">
+        <button class="zoom-btn" onclick="setPreviewZoom(previewZoom - 0.25)" title="Zoom out">−</button>
+        <span id="zoom-val" class="zoom-val">100%</span>
+        <button class="zoom-btn" onclick="setPreviewZoom(previewZoom + 0.25)" title="Zoom in">+</button>
+        <button class="zoom-btn zoom-reset" onclick="setPreviewZoom(1.0)" title="Reset zoom">1:1</button>
+      </div>
     </div>
     <div id="svgPreview"></div>
   </div>
@@ -3555,6 +3561,15 @@ Books read,15,8,12,20,11,18,9</textarea>
 </div>
 
 </div><!-- /app-wrapper -->
+
+<!-- ══════════ Element editor panel (floating, fixed) ══════════ -->
+<div id="ov-edit-panel" class="ov-edit-panel" style="display:none">
+  <div class="ov-edit-hdr">
+    <span id="ov-edit-title">Edit Element</span>
+    <button class="ov-edit-close" onclick="_ovEditClose()" title="Close">✕</button>
+  </div>
+  <div id="ov-edit-body" class="ov-edit-body"></div>
+</div>
 
 <script src="js/utils.js"></script>
 <script src="js/state.js"></script>

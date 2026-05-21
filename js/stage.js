@@ -157,8 +157,7 @@ function attachStageDragHandlers() {
       const el = stageEls.find(e => e.id === id);
       if (!el) return;
       stageSel = id;
-      const pt = svgLocalCoords(svgEl, e.clientX, e.clientY);
-      _sdrg = { id, ox: el.x, oy: el.y, scx: pt.x, scy: pt.y };
+      _sdrg = { id, lastClientX: e.clientX, lastClientY: e.clientY };
       render();
     });
   });
@@ -169,11 +168,16 @@ document.addEventListener('mousemove', e => {
   if (!_sdrg || currentShape !== 'stage') return;
   const svgEl = $('svgPreview').querySelector('svg');
   if (!svgEl) return;
-  const pt = svgLocalCoords(svgEl, e.clientX, e.clientY);
+  const rect = svgEl.getBoundingClientRect();
+  const vb   = svgEl.viewBox.baseVal;
+  const dx = (e.clientX - _sdrg.lastClientX) * (vb.width  / rect.width);
+  const dy = (e.clientY - _sdrg.lastClientY) * (vb.height / rect.height);
+  _sdrg.lastClientX = e.clientX;
+  _sdrg.lastClientY = e.clientY;
   const el = stageEls.find(el => el.id === _sdrg.id);
   if (!el) return;
-  el.x = Math.max(0, _sdrg.ox + (pt.x - _sdrg.scx));
-  el.y = Math.max(0, _sdrg.oy + (pt.y - _sdrg.scy));
+  el.x = Math.max(0, el.x + dx);
+  el.y = Math.max(0, el.y + dy);
   render();
 });
 

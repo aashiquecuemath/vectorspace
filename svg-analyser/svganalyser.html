@@ -163,9 +163,14 @@ button:disabled{opacity:.4;cursor:default}
 .preview-wrap svg{display:block;overflow:visible;
   filter:drop-shadow(0 4px 18px rgba(0,0,0,.13))}
 .preview-wrap [data-fline]{cursor:grab}
-.preview-wrap [data-fline]:hover{filter:brightness(.92) drop-shadow(0 0 4px rgba(0,107,107,.55))}
-.preview-wrap [data-fline].dragging{cursor:grabbing;opacity:.75}
-.preview-wrap .psel{filter:brightness(.88) drop-shadow(0 0 8px rgba(0,107,107,.85))!important}
+.preview-wrap [data-fline]:hover{
+  filter:brightness(.9) drop-shadow(0 0 7px rgba(0,107,107,.9)) drop-shadow(0 0 2px rgba(0,107,107,.6));
+  cursor:pointer}
+.preview-wrap [data-fline].dragging{cursor:grabbing;opacity:.75;filter:none}
+.preview-wrap .psel{
+  filter:brightness(.88) drop-shadow(0 0 10px #0080C7) drop-shadow(0 0 3px #0080C7) !important}
+[data-sel-ring]{pointer-events:none}
+[data-canvas-outline]{pointer-events:none}
 
 .hr-wrap{width:100%;font-family:Georgia,serif;color:var(--text);padding:8px}
 .hr-wrap h1,.hr-wrap h2,.hr-wrap h3{color:#111;margin:8px 0 4px}
@@ -318,10 +323,13 @@ input[type="color"].ti-color{
 
     <div class="pane" id="preview-pane">
       <div class="pane-hdr">
-        <span>Preview <span class="pane-hint">— drag to move · click text to style</span></span>
+        <span>Preview <span class="pane-hint">— drag to move · double-click to edit</span></span>
         <div class="ctl">
           <button onclick="fitSVG()">Fit</button>
           <button onclick="resetSVG()">1:1</button>
+          <button onclick="setCanvasZoom(canvasZoom-0.1)" title="Zoom out">−</button>
+          <span id="zoom-label" style="font-size:12px;min-width:38px;text-align:center;display:inline-block;color:var(--text)">100%</span>
+          <button onclick="setCanvasZoom(canvasZoom+0.1)" title="Zoom in">+</button>
         </div>
       </div>
       <div class="preview-wrap" id="preview"></div>
@@ -488,6 +496,17 @@ input[type="color"].ti-color{
     <button onclick="applyLineChanges()">Apply</button>
     <button onclick="closeLinePopup()">Close</button>
     <button class="btn-danger" onclick="deleteElement(linePopupLine);closeLinePopup()">Delete</button>
+  </div>
+</div>
+
+<!-- Generic element editor popup -->
+<div id="elem-popup" class="font-popup">
+  <div class="fp-title" id="elem-popup-title">&#9998; Edit Element</div>
+  <div id="elem-popup-body" style="max-height:320px;overflow-y:auto"></div>
+  <div class="fp-btns">
+    <button onclick="applyElemChanges()">Apply</button>
+    <button onclick="closeElemPopup()">Close</button>
+    <button class="btn-danger" onclick="deleteElement(elemPopupLine);closeElemPopup()">Delete</button>
   </div>
 </div>
 
@@ -842,13 +861,13 @@ function highlightLine(ln){
   row.classList.add('hl');row.scrollIntoView({behavior:'smooth',block:'center'});
 }
 function highlightPreviewEl(ln){
-  document.querySelectorAll('#preview .psel').forEach(x=>x.classList.remove('psel'));
   const pel=document.querySelector(`#preview [data-fline="${ln}"]`);if(!pel)return;
-  pel.classList.add('psel');setTimeout(()=>pel.classList.remove('psel'),1600);
+  _setSelectedEl(pel);
 }
 
 /* ═══════════ RENDER PREVIEW ═══════════ */
 function renderPreview(text,mode){
+  _clearSelection();
   const wrap=document.getElementById('preview');
   const safe=text.replace(/<script[\s\S]*?<\/script>/gi,'');
   if(mode==='SVG'){
@@ -868,15 +887,75 @@ function renderPreview(text,mode){
   }
   wrap.onmouseover=onPreviewOver;
   wrap.onmouseout=onPreviewOut;
+  if(mode==='SVG')addPreviewOutline();
+  applyCanvasZoom();
+}
+
+function addPreviewOutline(){
+  const svg=document.querySelector('#preview svg');if(!svg)return;
+  const vb=svg.viewBox.baseVal;
+  if(!vb||!vb.width)return;
+  const old=svg.querySelector('[data-canvas-outline]');if(old)old.remove();
+  const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  r.setAttribute('data-canvas-outline','1');
+  r.setAttribute('x',vb.x);r.setAttribute('y',vb.y);
+  r.setAttribute('width',vb.width);r.setAttribute('height',vb.height);
+  r.setAttribute('fill','none');
+  r.setAttribute('stroke','#aaa');r.setAttribute('stroke-width','1');
+  r.setAttribute('stroke-dasharray','8 5');
+  r.setAttribute('pointer-events','none');
+  svg.insertBefore(r,svg.firstChild);
 }
 
 /* ═══════════ DRAG ═══════════ */
 let dragState=null;
+let _selectedEl=null;
 
-function getSvgCoords(svg,cx,cy){
-  const pt=svg.createSVGPoint();pt.x=cx;pt.y=cy;
-  try{return pt.matrixTransform(svg.getScreenCTM().inverse());}
-  catch(e){return{x:cx,y:cy};}
+function svgLocalPt(svg,cx,cy){
+  const r=svg.getBoundingClientRect();
+  const vb=svg.viewBox.baseVal;
+  if(!r.width||!vb.width)return{x:cx,y:cy};
+  return{
+    x:vb.x+(cx-r.left)*(vb.width/r.width),
+    y:vb.y+(cy-r.top)*(vb.height/r.height)
+  };
+}
+
+function _setSelectedEl(el){
+  if(_selectedEl&&_selectedEl!==el){
+    _selectedEl.classList.remove('psel');
+    _removeSelectionRing();
+  }
+  _selectedEl=el;
+  el.classList.add('psel');
+  _addSelectionRing(el);
+}
+
+function _clearSelection(){
+  if(_selectedEl){_selectedEl.classList.remove('psel');_selectedEl=null;}
+  _removeSelectionRing();
+}
+
+function _addSelectionRing(el){
+  _removeSelectionRing();
+  const svg=el.closest('svg');if(!svg)return;
+  try{
+    const bb=el.getBBox();
+    const pad=4;
+    const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    r.setAttribute('data-sel-ring','1');
+    r.setAttribute('x',bb.x-pad);r.setAttribute('y',bb.y-pad);
+    r.setAttribute('width',bb.width+pad*2);r.setAttribute('height',bb.height+pad*2);
+    r.setAttribute('fill','none');
+    r.setAttribute('stroke','#0080C7');r.setAttribute('stroke-width','1.5');
+    r.setAttribute('stroke-dasharray','5 3');
+    r.setAttribute('rx','2');
+    svg.appendChild(r);
+  }catch(e){}
+}
+
+function _removeSelectionRing(){
+  document.querySelectorAll('[data-sel-ring]').forEach(r=>r.remove());
 }
 
 document.getElementById('preview').addEventListener('mousedown',e=>{
@@ -885,21 +964,30 @@ document.getElementById('preview').addEventListener('mousedown',e=>{
   const el=findFlineEl(e.target,preview);if(!el)return;
   const svg=preview.querySelector('svg');if(!svg)return;
   const fline=parseInt(el.dataset.fline,10);
-  const svgPt=getSvgCoords(svg,e.clientX,e.clientY);
+  const svgPt=svgLocalPt(svg,e.clientX,e.clientY);
   dragState={el,fline,svg,
     startCX:e.clientX,startCY:e.clientY,
-    startSX:svgPt.x,startSY:svgPt.y,moved:false};
+    startSX:svgPt.x,startSY:svgPt.y,
+    svgDx:0,svgDy:0,moved:false};
   e.preventDefault();
 });
 
 document.addEventListener('mousemove',e=>{
   if(!dragState)return;
-  const dx=e.clientX-dragState.startCX;
-  const dy=e.clientY-dragState.startCY;
-  if(Math.abs(dx)>3||Math.abs(dy)>3){
-    dragState.moved=true;
-    dragState.el.classList.add('dragging');
-    dragState.el.style.transform=`translate(${dx}px,${dy}px)`;
+  const ds=dragState;
+  const svgPt=svgLocalPt(ds.svg,e.clientX,e.clientY);
+  const sdx=svgPt.x-ds.startSX;
+  const sdy=svgPt.y-ds.startSY;
+  const r=ds.svg.getBoundingClientRect();
+  const vb=ds.svg.viewBox.baseVal;
+  const scale=vb.width?r.width/vb.width:1;
+  const cssDx=sdx*scale;
+  const cssDy=sdy*scale;
+  if(Math.abs(cssDx)>3||Math.abs(cssDy)>3){
+    ds.moved=true;
+    ds.svgDx=sdx;ds.svgDy=sdy;
+    ds.el.classList.add('dragging');
+    ds.el.style.transform=`translate(${cssDx}px,${cssDy}px)`;
   }
 });
 
@@ -910,21 +998,26 @@ document.addEventListener('mouseup',e=>{
   ds.el.classList.remove('dragging');
 
   if(!ds.moved){
-    // plain click
+    // plain click — select & highlight
     lastClickedFline=ds.fline;
     highlightLine(ds.fline);
-    ds.el.classList.add('psel');
-    setTimeout(()=>ds.el.classList.remove('psel'),1600);
-    const tag=ds.el.tagName.toLowerCase();
-    if(tag==='text'||tag==='tspan')openFontPopup(ds.el,ds.fline,e.clientX,e.clientY);
-    else if(tag==='line'||tag==='polyline'||tag==='path')openLinePopup(ds.el,ds.fline,e.clientX,e.clientY);
+    _setSelectedEl(ds.el);
     return;
   }
 
-  const endPt=getSvgCoords(ds.svg,e.clientX,e.clientY);
-  const dx=endPt.x-ds.startSX;
-  const dy=endPt.y-ds.startSY;
-  applyDragToCode(ds.fline,ds.el,dx,dy);
+  applyDragToCode(ds.fline,ds.el,ds.svgDx,ds.svgDy);
+});
+
+document.getElementById('preview').addEventListener('dblclick',e=>{
+  if(currentMode!=='SVG')return;
+  const preview=document.getElementById('preview');
+  const el=findFlineEl(e.target,preview);if(!el)return;
+  const fline=parseInt(el.dataset.fline,10);
+  const tag=el.tagName.toLowerCase();
+  if(tag==='text'||tag==='tspan')openFontPopup(el,fline,e.clientX,e.clientY);
+  else if(tag==='line'||tag==='polyline'||tag==='path')openLinePopup(el,fline,e.clientX,e.clientY);
+  else openElemPopup(el,fline,e.clientX,e.clientY);
+  e.preventDefault();
 });
 
 function applyDragToCode(fline,el,dx,dy){
@@ -1071,6 +1164,8 @@ document.addEventListener('mousedown',e=>{
   if(popup.style.display!=='none'&&!popup.contains(e.target))closeFontPopup();
   const lnp=document.getElementById('line-popup');
   if(lnp.style.display!=='none'&&!lnp.contains(e.target))closeLinePopup();
+  const ep=document.getElementById('elem-popup');
+  if(ep.style.display!=='none'&&!ep.contains(e.target))closeElemPopup();
   // close insert popups when clicking outside (but not on their trigger buttons)
   const tp=document.getElementById('insert-text-popup');
   const lp=document.getElementById('insert-line-popup');
@@ -1087,6 +1182,7 @@ document.addEventListener('keydown',e=>{
     if(popup.style.display!=='none')closeFontPopup();
     closeLinePopup();
     closeInsertPopup();
+    closeElemPopup();
   }
   if(e.key==='Delete'||e.key==='Backspace'){
     const ae=document.activeElement;
@@ -1257,6 +1353,26 @@ function pushCode(code){saveUndo();document.getElementById('raw-input').value=co
 function clearInput(){undoStack=[];_syncUndoBtn();document.getElementById('raw-input').value='';process('');}
 function copyInput(){navigator.clipboard.writeText(document.getElementById('raw-input').value).then(()=>flash('btn-ci','✓ Copied'));}
 function copyFmt(){navigator.clipboard.writeText(plainFmt).then(()=>flash('btn-cf','✓ Copied'));}
+let canvasZoom=1.0;
+
+function applyCanvasZoom(){
+  const s=document.querySelector('#preview svg');if(!s)return;
+  const vb=s.viewBox.baseVal;
+  const sw=vb&&vb.width?vb.width:parseFloat(s.getAttribute('width')||'0');
+  const sh=vb&&vb.height?vb.height:parseFloat(s.getAttribute('height')||'0');
+  if(sw>0&&sh>0){
+    s.style.width=Math.round(sw*canvasZoom)+'px';
+    s.style.height=Math.round(sh*canvasZoom)+'px';
+    s.style.maxWidth='';
+  }
+  document.getElementById('zoom-label').textContent=Math.round(canvasZoom*100)+'%';
+}
+
+function setCanvasZoom(z){
+  canvasZoom=Math.max(0.1,Math.min(5,z));
+  applyCanvasZoom();
+}
+
 function fitSVG(){
   const s=document.querySelector('#preview svg');if(!s)return;
   const wrap=document.getElementById('preview');
@@ -1266,13 +1382,21 @@ function fitSVG(){
   const sh=vb&&vb.height?vb.height:parseFloat(s.getAttribute('height')||'0');
   if(sw>0&&sh>0){
     const scale=Math.min(aw/sw,ah/sh,1);
+    canvasZoom=scale;
     s.style.width=Math.round(sw*scale)+'px';
     s.style.height=Math.round(sh*scale)+'px';
+    s.style.maxWidth='';
   } else {
     s.style.maxWidth=aw+'px';s.style.height='auto';
   }
+  document.getElementById('zoom-label').textContent=Math.round(canvasZoom*100)+'%';
 }
-function resetSVG(){const s=document.querySelector('#preview svg');if(s){s.style.width='';s.style.height='';s.style.maxWidth=''}}
+function resetSVG(){
+  canvasZoom=1.0;
+  const s=document.querySelector('#preview svg');
+  if(s){s.style.width='';s.style.height='';s.style.maxWidth='';}
+  document.getElementById('zoom-label').textContent='100%';
+}
 
 /* ═══════════ SAMPLES ═══════════ */
 const SAMPLES={
@@ -1461,6 +1585,90 @@ function applyLineChanges() {
   pushCode(newCode);
   closeLinePopup();
   setTimeout(() => highlightLine(savedLine), 30);
+}
+
+/* ═══════════ GENERIC ELEMENT EDITOR ═══════════ */
+let elemPopupLine=null;
+const ELEM_COLOR_ATTRS=['fill','stroke','color','stop-color'];
+const ELEM_NUM_ATTRS=['stroke-width','opacity','fill-opacity','stroke-opacity','r','rx','ry',
+  'cx','cy','x','y','x1','y1','x2','y2','width','height','font-size'];
+const ELEM_STR_ATTRS=['stroke-dasharray','transform','href','xlink:href','font-family',
+  'text-anchor','dominant-baseline','class'];
+
+function openElemPopup(el,fline,cx,cy){
+  elemPopupLine=fline;
+  const tag=el.tagName.toLowerCase();
+  document.getElementById('elem-popup-title').textContent=`✏ <${tag}>`;
+
+  // Parse attributes from the source line
+  const line=plainFmt.split('\n')[fline-1]||'';
+  const attrRe=/(\S+)="([^"]*)"/g;
+  const attrs={};let m;
+  while((m=attrRe.exec(line))!==null)attrs[m[1]]=m[2];
+
+  const body=document.getElementById('elem-popup-body');
+  body.innerHTML='';
+
+  // Build rows for each known attribute that exists on this element
+  const allAttrs=[...ELEM_COLOR_ATTRS,...ELEM_NUM_ATTRS,...ELEM_STR_ATTRS];
+  const seen=new Set(allAttrs);
+  // also show any attrs from the element we don't know
+  for(const k of Object.keys(attrs)){if(!seen.has(k)&&k!=='data-fline')allAttrs.push(k);}
+
+  for(const k of allAttrs){
+    if(!(k in attrs))continue;
+    const v=attrs[k];
+    const row=document.createElement('div');row.className='fp-row';
+    const lbl=document.createElement('label');lbl.textContent=k;lbl.title=k;
+    lbl.style.cssText='max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0';
+    row.appendChild(lbl);
+
+    let inp;
+    if(ELEM_COLOR_ATTRS.includes(k)&&/^#[0-9a-fA-F]{3,6}$/.test(v)){
+      inp=document.createElement('input');inp.type='color';inp.className='ti-color';
+      inp.value=v;
+    } else if(ELEM_NUM_ATTRS.includes(k)&&v!==''&&!isNaN(parseFloat(v))&&!/\s/.test(v)){
+      inp=document.createElement('input');inp.type='number';inp.className='ti ti-n';
+      inp.value=v;inp.step='any';inp.style.width='80px';
+    } else {
+      inp=document.createElement('input');inp.type='text';inp.className='ti';
+      inp.value=v;inp.style.width='130px';
+    }
+    inp.dataset.attrKey=k;
+    row.appendChild(inp);
+    body.appendChild(row);
+  }
+
+  const popup=document.getElementById('elem-popup');
+  popup.style.display='block';
+  const pw=popup.offsetWidth||220,ph=popup.offsetHeight||200;
+  let left=cx+12,top=cy-20;
+  if(left+pw>window.innerWidth-8)left=cx-pw-12;
+  if(top+ph>window.innerHeight-8)top=window.innerHeight-ph-8;
+  if(top<4)top=4;
+  popup.style.left=left+'px';popup.style.top=top+'px';
+}
+
+function closeElemPopup(){
+  document.getElementById('elem-popup').style.display='none';
+  elemPopupLine=null;
+}
+
+function applyElemChanges(){
+  if(!elemPopupLine)return;
+  const inputs=document.querySelectorAll('#elem-popup-body [data-attr-key]');
+  const arr=plainFmt.split('\n');
+  let ln=arr[elemPopupLine-1];if(!ln)return;
+  inputs.forEach(inp=>{
+    const k=inp.dataset.attrKey;
+    const v=inp.value;
+    ln=setAttr(ln,k,v);
+  });
+  arr[elemPopupLine-1]=ln;
+  const savedLine=elemPopupLine;
+  pushCode(arr.join('\n'));
+  closeElemPopup();
+  setTimeout(()=>highlightLine(savedLine),30);
 }
 
 /* ═══════════ DELETE ELEMENT ═══════════ */

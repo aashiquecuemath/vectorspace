@@ -26,8 +26,11 @@ function addCanvasOutline(svg) {
   const vbM=svg.match(/viewBox="([^"]+)"/);
   if (!vbM) return svg;
   const [vx,vy,vw,vh]=vbM[1].trim().split(/\s+/).map(Number);
-  const r=`<rect data-canvas-outline="true" x="${vx+0.5}" y="${vy+0.5}" width="${vw-1}" height="${vh-1}" fill="none" stroke="#4A9EFF" stroke-width="1.2" stroke-dasharray="6 4" opacity="0.7" pointer-events="none"/>`;
-  return svg.replace(/(<svg[^>]*>)/, '$1\n'+r);
+  const r=`<rect data-canvas-outline="true" x="${vx+0.5}" y="${vy+0.5}" width="${vw-1}" height="${vh-1}" fill="none" stroke="#4A9EFF" stroke-width="1.5" stroke-dasharray="6 4" opacity="0.9" pointer-events="none"/>`;
+  // Insert at end so it renders above background and shape content
+  const last=svg.lastIndexOf('</svg>');
+  if(last===-1) return svg;
+  return svg.slice(0,last)+r+'\n'+svg.slice(last);
 }
 
 // Inject a solid background rect when the user enables the BG colour option.
