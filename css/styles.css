@@ -1424,7 +1424,9 @@ input[type=hidden].pt-hidden-val { display:none !important; }
   padding: 5px 8px;
   background: var(--surface-alt, #f5f7fa);
   border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none;
 }
+.g3d-dim-section--collapsed .g3d-dim-section-head { border-bottom: none; }
 .g3d-dim-section-label {
   font-size: 12px; font-weight: 600;
   color: var(--text); cursor: pointer; user-select: none;

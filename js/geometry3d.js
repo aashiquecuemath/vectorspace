@@ -70,7 +70,7 @@ function _edgeFace(verts, col, w, proj) {
 
 /* ── Arrowhead marker ─────────────────────────────────────────────────── */
 function _arrowDef(id, col, sz) {
-  return `<marker id="${id}" viewBox="0 0 10 10" refX="5" refY="5"
+  return `<marker id="${id}" viewBox="0 0 10 10" refX="10" refY="5"
   markerWidth="${sz}" markerHeight="${sz}" orient="auto-start-reverse">
   <path d="M0,0 L10,5 L0,10 Z" fill="${col}"/>
 </marker>`;
@@ -106,10 +106,28 @@ function _dim(p1, p2, norm, label, o, proj, track) {
   const lPos = o.labelPos || 'center';
   const lOff = (o.labelOffset != null) ? o.labelOffset : (o.fontSize * 0.6 + 4);
   const _arrowMidXY = () => [(ax1+ax2)/2, (ay1+ay2)/2];
-  const da = o.dash ? ` stroke-dasharray="${o.dash}"` : '';
-  if (label && lPos === 'center') {
+  const dashMap = { dashed:'8 4', dotted:'2 4' };
+  const da = o.lineDash
+    ? ` stroke-dasharray="${dashMap[o.lineDash] || o.lineDash}"`
+    : (o.dash ? ` stroke-dasharray="${o.dash}"` : '');
+  const endStyle = o.endStyle || 'arrow';
+  const alen = Math.hypot(ax2-ax1, ay2-ay1);
+
+  if (endStyle === 'tick' || endStyle === 'both') {
+    // Short perpendicular cap at each end of the arrow line
+    const CAPW = 7;
+    const nx = -(ay2-ay1)/alen, ny = (ax2-ax1)/alen; // perpendicular to arrow
+    const tW = o.tickW != null ? o.tickW : o.arrowW;
+    s += _seg(ax1-nx*CAPW, ay1-ny*CAPW, ax1+nx*CAPW, ay1+ny*CAPW, o.arrowColor, tW) + '\n';
+    s += _seg(ax2-nx*CAPW, ay2-ny*CAPW, ax2+nx*CAPW, ay2+ny*CAPW, o.arrowColor, tW) + '\n';
+  }
+
+  if (endStyle === 'tick') {
+    // Line only — no arrowheads
+    s += `<line x1="${fmt(ax1)}" y1="${fmt(ay1)}" x2="${fmt(ax2)}" y2="${fmt(ay2)}"
+  stroke="${o.arrowColor}" stroke-width="${o.arrowW}"${da}/>\n`;
+  } else if (label && lPos === 'center') {
     const [mx, my] = _arrowMidXY();
-    const alen = Math.hypot(ax2-ax1, ay2-ay1);
     const tx = (ax2-ax1)/alen, ty = (ay2-ay1)/alen;
     // Gap accounts for rotated label's extent projected onto arrow tangent
     const rot_rad = (o.labelRot || 0) * Math.PI / 180;
@@ -421,9 +439,11 @@ function _buildTriPrism(b, h, d, col, eCol, eW, showHidden, proj) {
   return {
     svg: s,
     dims: {
-      b: { p1:[-b/2,-h/2, d/2], p2:[ b/2,-h/2, d/2], norm:[0,-1, 0.6] },
-      h: { p1:[   0,-h/2, d/2], p2:[0,   h/2, d/2],  norm:[-1, 0, 0.5] },
-      d: { p1:[ b/2,-h/2, d/2], p2:[ b/2,-h/2,-d/2], norm:[1,-0.6, 0]  },
+      b:  { p1:[-b/2,-h/2, d/2], p2:[ b/2,-h/2, d/2], norm:[0,-1, 0.6]   },
+      h:  { p1:[   0,-h/2, d/2], p2:[0,   h/2, d/2],  norm:[-1, 0, 0.5]  },
+      d:  { p1:[ b/2,-h/2, d/2], p2:[ b/2,-h/2,-d/2], norm:[1,-0.6, 0]   },
+      sl: { p1:[-b/2,-h/2, d/2], p2:[0,   h/2, d/2],  norm:[-1, 0.4, 0.4] },
+      sr: { p1:[ b/2,-h/2, d/2], p2:[0,   h/2, d/2],  norm:[ 1, 0.4, 0.4] },
     },
     faces: [
       { name:'Front',  c:[0, 0,  d/2], role:'front'  },
@@ -752,9 +772,11 @@ const _G3D_DIM_META = {
   cone:     [{ key:'r', label:'Radius', ph:'r' },
              { key:'h', label:'Height', ph:'h' }],
   sphere:   [{ key:'r', label:'Radius', ph:'r' }],
-  triprism: [{ key:'b', label:'Base',   ph:'b' },
-             { key:'h', label:'Height', ph:'h' },
-             { key:'d', label:'Depth',  ph:'d' }],
+  triprism: [{ key:'b',  label:'Base',        ph:'b' },
+             { key:'h',  label:'Height',      ph:'h' },
+             { key:'d',  label:'Depth',       ph:'d' },
+             { key:'sl', label:'Left slant',  ph:'s₁' },
+             { key:'sr', label:'Right slant', ph:'s₂' }],
   pyramid:  [{ key:'b', label:'Base',   ph:'a' },
              { key:'h', label:'Height', ph:'h' }],
   hexprism: [{ key:'r', label:'Side',   ph:'a' },
@@ -923,17 +945,21 @@ function _generateG3DObj(i) {
     const dBold     = chk(DK(dm, '-bold'));
     const dItal     = chk(DK(dm, '-ital'));
     const dLblRot   = num(DK(dm, '-lbl-rot')) || 0;
-    const dTicks    = chk(DK(dm, '-ticks'));
-    const dTickW    = Math.max(0.3, num(DK(dm, '-tick-w')) || 1);
-    const dMid      = 'g3d_arr_' + dColor.replace('#','');
+    const dTicks      = chk(DK(dm, '-ticks'));
+    const dTickW      = Math.max(0.3, num(DK(dm, '-tick-w')) || 1);
+    const dEndStyle   = val(DK(dm, '-end-style'))  || 'arrow';
+    const dLineStyle  = val(DK(dm, '-line-style'))  || 'solid';
+    const dMid        = 'g3d_arr_' + dColor.replace('#','');
     if (!markers.has(dColor)) markers.set(dColor, { id: dMid, arrowSz: dAs });
     const dDash = (dd.hidden && hidden) ? '4,3' : null;
+    const dLineDash = dLineStyle !== 'solid' ? dLineStyle : null;
     annParts.push(_dim(dd.p1, dd.p2, dd.norm, lbl, {
       arrowColor: dColor, labelColor: dLblColor,
       arrowW: dAw, fontSize: dFs, fontFamily: dFf,
       fontBold: dBold, fontItalic: dItal,
       offset: dOff, labelOffset: dLblOff, labelPos: dLblPos, labelRot: dLblRot,
       showTicks: dTicks, tickW: dTickW, mid: dMid, dash: dDash,
+      endStyle: dEndStyle, lineDash: dLineDash,
     }, proj, _track));
   }
 
@@ -1527,13 +1553,14 @@ function _g3dFillDimPanel(shape, oi=0) {
       ? `<div class="check-row" style="margin-left:auto;font-size:10px"><input type="checkbox" id="${k}-net"><label for="${k}-net">On net</label></div>`
       : '';
     return `
-<div class="g3d-dim-section">
-  <div class="g3d-dim-section-head">
-    <input type="checkbox" id="${k}">
-    <label for="${k}" class="g3d-dim-section-label">${dm.label}</label>
+<div class="g3d-dim-section g3d-dim-section--collapsed">
+  <div class="g3d-dim-section-head g3d-dim-section-toggle" style="cursor:pointer">
+    <input type="checkbox" id="${k}" onclick="event.stopPropagation()">
+    <label for="${k}" class="g3d-dim-section-label" onclick="event.stopPropagation()">${dm.label}</label>
     ${netChk}
+    <span class="g3d-dim-chv" style="margin-left:auto;font-size:11px;color:var(--muted)">▸</span>
   </div>
-  <div class="g3d-dim-section-body">
+  <div class="g3d-dim-section-body" style="display:none">
     <div class="g3d-dim-sub-head">Arrow</div>
     <div class="row2">
       <div><label>Color</label><input type="color" id="${k}-color" value="#cc3300"></div>
@@ -1542,6 +1569,22 @@ function _g3dFillDimPanel(shape, oi=0) {
     <div class="row3" style="margin-top:4px">
       <div><label>Width</label><input type="number" id="${k}-aw" value="1.5" min="0.5" max="6" step="0.5"></div>
       <div><label>Head size</label><input type="number" id="${k}-as" value="5" min="2" max="16" step="0.5"></div>
+    </div>
+    <div class="row2" style="margin-top:4px">
+      <div><label>End style</label>
+        <select id="${k}-end-style">
+          <option value="arrow">Arrows</option>
+          <option value="tick">Ticks</option>
+          <option value="both">Arrows + Ticks</option>
+        </select>
+      </div>
+      <div><label>Line style</label>
+        <select id="${k}-line-style">
+          <option value="solid">Solid</option>
+          <option value="dashed">Dashed</option>
+          <option value="dotted">Dotted</option>
+        </select>
+      </div>
     </div>
     <div class="row2" style="margin-top:4px">
       <div class="check-row" style="margin-top:18px"><input type="checkbox" id="${k}-ticks" checked><label for="${k}-ticks">Extension lines</label></div>
@@ -1578,6 +1621,18 @@ function _g3dFillDimPanel(shape, oi=0) {
   panel.querySelectorAll('input, select').forEach(el => {
     el.addEventListener('input',  () => { if (typeof render==='function') render(); });
     el.addEventListener('change', () => { if (typeof render==='function') render(); });
+  });
+
+  // Wire collapse toggles
+  panel.querySelectorAll('.g3d-dim-section-toggle').forEach(head => {
+    head.addEventListener('click', () => {
+      const sec  = head.closest('.g3d-dim-section');
+      const body = sec.querySelector('.g3d-dim-section-body');
+      const chv  = head.querySelector('.g3d-dim-chv');
+      const open = body.style.display !== 'none';
+      body.style.display = open ? 'none' : '';
+      if (chv) chv.textContent = open ? '▸' : '▾';
+    });
   });
 
   _g3dFillFaceInputs(shape, oi);
