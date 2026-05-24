@@ -1629,8 +1629,8 @@
           <div class="sub-group sub-group--pbal-mode">
             <div class="sub-group-title" style="margin-bottom:7px">Display Mode</div>
             <div style="display:flex;gap:0;border-radius:6px;overflow:hidden;border:1.5px solid var(--border)">
-              <button id="pbal-mode-balance" style="flex:1;padding:5px;font-size:.78rem;font-weight:700;background:#0096c7;color:#fff;border:none;cursor:pointer;transition:.15s">Balance</button>
-              <button id="pbal-mode-weights" style="flex:1;padding:5px;font-size:.78rem;font-weight:700;background:var(--card);color:var(--muted);border:none;cursor:pointer;transition:.15s">Weights</button>
+              <button id="pbal-mode-balance" class="pbal-mode-btn active">Balance</button>
+              <button id="pbal-mode-weights" class="pbal-mode-btn">Weights</button>
             </div>
           </div>
 
@@ -1642,9 +1642,9 @@
               <div class="sub-group-title">Position <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
               <div class="sub-body">
                 <div style="display:flex;gap:5px;margin-top:2px">
-                  <button id="pbal-pos-left-up"  style="flex:1;font-size:.7rem;padding:5px;background:var(--surface,#1a2232);color:var(--muted);border:1px solid var(--border);border-radius:5px;cursor:pointer">Left Down</button>
-                  <button id="pbal-pos-balanced" style="flex:1;font-size:.7rem;padding:5px;background:#0096c7;color:#fff;border:1px solid #0096c7;border-radius:5px;cursor:pointer;font-weight:700">Balanced</button>
-                  <button id="pbal-pos-right-up" style="flex:1;font-size:.7rem;padding:5px;background:var(--surface,#1a2232);color:var(--muted);border:1px solid var(--border);border-radius:5px;cursor:pointer">Right Down</button>
+                  <button id="pbal-pos-left-up"  class="pbal-pos-btn">Left Down</button>
+                  <button id="pbal-pos-balanced" class="pbal-pos-btn active">Balanced</button>
+                  <button id="pbal-pos-right-up" class="pbal-pos-btn">Right Down</button>
                 </div>
               </div>
             </div>
@@ -1654,10 +1654,11 @@
               <div class="sub-group-title">Boundary <svg class="chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 7L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
               <div class="sub-body">
                 <div class="row3">
-                  <div><label for="pbal-pad-x">H padding</label><input type="number" id="pbal-pad-x" value="12" min="0" max="300" step="1"></div>
-                  <div><label for="pbal-pad-top">Top padding</label><input type="number" id="pbal-pad-top" value="12" min="0" max="300" step="1"></div>
-                  <div><label for="pbal-pad-bot">Bot padding</label><input type="number" id="pbal-pad-bot" value="12" min="0" max="300" step="1"></div>
+                  <div><label for="pbal-pad-x">H padding</label><input type="number" id="pbal-pad-x" value="12" min="0" max="300" step="1" oninput="render()"></div>
+                  <div><label for="pbal-pad-top">Top padding</label><input type="number" id="pbal-pad-top" value="12" min="0" max="300" step="1" oninput="render()"></div>
+                  <div><label for="pbal-pad-bot">Bot padding</label><input type="number" id="pbal-pad-bot" value="12" min="0" max="300" step="1" oninput="render()"></div>
                 </div>
+                <div style="margin-top:6px"><label for="pbal-size-scale">Size scale</label><input type="number" id="pbal-size-scale" value="0.9" min="0.1" max="5" step="0.05" style="width:100%" oninput="render()"></div>
               </div>
             </div>
 

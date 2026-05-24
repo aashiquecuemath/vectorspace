@@ -174,6 +174,7 @@ function _pbGenBalance() {
   // Pan rims and bowls
   bMinX = Math.min(bMinX, lx - _PRX - 8, rx - _PRX - 8);
   bMaxX = Math.max(bMaxX, lx + _PRX + 8, rx + _PRX + 8);
+  bMinY = Math.min(bMinY, lRimY - 5, rRimY - 5);
   bMaxY = Math.max(bMaxY, lRimY + _PDP, rRimY + _PDP);
 
   // Items on pans
@@ -191,8 +192,9 @@ function _pbGenBalance() {
   const vbY = _pbF(bMinY - padTop);
   const vbW = _pbF((bMaxX + padX) - (bMinX - padX));
   const vbH = _pbF((bMaxY + padBot) - (bMinY - padTop));
-  const W   = Math.round(parseFloat(vbW));
-  const H   = Math.round(parseFloat(vbH));
+  const sizeScale = Math.max(0.1, Math.min(5, parseFloat(val('pbal-size-scale')) || 0.9));
+  const W   = Math.round(parseFloat(vbW) * sizeScale);
+  const H   = Math.round(parseFloat(vbH) * sizeScale);
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" width="${W}" height="${H}">${h}</svg>`;
 }
@@ -209,8 +211,9 @@ function _pbGenWeights() {
   const minY=Math.min(..._panLW.map((w,i)=>w.yOff-szs[i].h*.834))-pad;
   const maxX=Math.max(..._panLW.map((w,i)=>w.xOff+szs[i].w/2))+pad;
   const maxY=Math.max(..._panLW.map((w,i)=>w.yOff+szs[i].h*.5))+pad;
-  const W=Math.max(200,maxX-minX), H=Math.max(80,maxY-minY);
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${_pbF(minX)} ${_pbF(minY)} ${_pbF(W)} ${_pbF(H)}" width="${Math.round(W)}" height="${Math.round(H)}">${h}</svg>`;
+  const vbW=Math.max(200,maxX-minX), vbH=Math.max(80,maxY-minY);
+  const sizeScale = Math.max(0.1, Math.min(5, parseFloat(val('pbal-size-scale')) || 0.9));
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${_pbF(minX)} ${_pbF(minY)} ${_pbF(vbW)} ${_pbF(vbH)}" width="${Math.round(vbW * sizeScale)}" height="${Math.round(vbH * sizeScale)}">${h}</svg>`;
 }
 
 // ── Drag handlers ────────────────────────────────────────────────────────────
