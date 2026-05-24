@@ -47,15 +47,91 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);
 .tools-bar{
   display:flex;align-items:center;flex-shrink:0;
   background:var(--panel);border-bottom:1px solid var(--border);
-  padding:5px 12px;gap:0;overflow-x:auto;white-space:nowrap;
+  padding:5px 12px;gap:0;
   box-shadow:var(--shadow);
+  overflow:hidden;
 }
-.tb-group{display:flex;align-items:center;gap:6px;padding:0 12px;flex-shrink:0}
+.tb-group{display:flex;align-items:center;gap:5px;padding:0 10px;flex-shrink:0}
 .tb-group+.tb-group{border-left:1px solid var(--border)}
 .tb-group:first-child{padding-left:0}
 .tb-label{font-size:.65rem;font-weight:700;letter-spacing:.07em;
-  text-transform:uppercase;color:var(--muted);min-width:36px;flex-shrink:0}
+  text-transform:uppercase;color:var(--muted);min-width:32px;flex-shrink:0}
 .tb-sub{display:flex;align-items:center;gap:4px;font-size:.75rem;color:var(--muted)}
+/* ── Resize / Active-region modal shared styles ── */
+.editor-modal{
+  display:none;position:fixed;inset:0;z-index:9500;
+  background:rgba(0,0,0,.35);align-items:center;justify-content:center;
+}
+.editor-modal.open{display:flex;}
+.em-box{
+  background:#fff;border-radius:10px;
+  box-shadow:0 8px 32px rgba(0,0,0,.18);
+  padding:18px 20px 16px;min-width:280px;
+  display:flex;flex-direction:column;gap:12px;
+}
+.em-title{font-size:.88rem;font-weight:700;color:var(--text);}
+.em-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;}
+.em-field{display:flex;flex-direction:column;gap:3px;}
+.em-field label{font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+.em-field input[type=number]{
+  border:1.5px solid var(--border);border-radius:5px;
+  padding:4px 7px;font-size:.82rem;font-family:inherit;
+  width:100%;outline:none;
+}
+.em-field input[type=number]:focus{border-color:var(--accent2);}
+.em-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap;}
+.em-actions button{
+  padding:5px 13px;font-size:.78rem;font-weight:600;
+  border-radius:6px;cursor:pointer;border:1.5px solid var(--border);
+  font-family:inherit;background:#fff;color:var(--text);
+}
+.em-btn-apply{background:var(--accent2)!important;color:#fff!important;border-color:var(--accent2)!important;}
+.em-btn-apply:hover{background:#005fa3!important;}
+.em-btn-reset{color:#dc2626!important;border-color:#dc2626!important;margin-left:auto;}
+.em-btn-reset:hover{background:#fef2f2!important;}
+.em-btn-cancel:hover{background:var(--bg);}
+.em-sep{border-top:1px solid var(--border);margin:2px 0;}
+.em-row{display:flex;align-items:center;gap:8px;}
+.em-row label{font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;min-width:52px;flex-shrink:0;}
+.em-row input[type=number]{
+  border:1.5px solid var(--border);border-radius:5px;
+  padding:4px 7px;font-size:.82rem;font-family:inherit;
+  width:80px;outline:none;
+}
+.em-row input[type=number]:focus{border-color:var(--accent2);}
+.lock-btn-em{padding:4px 8px;font-size:.85rem;flex-shrink:0;}
+.lock-btn-em.on{color:var(--accent);border-color:var(--accent);background:rgba(0,107,107,.07);}
+/* active region button highlight */
+#btn-ar.ar-on{background:rgba(0,128,0,.1);border-color:#16a34a;color:#16a34a;}
+/* ── Plot area (grid + rulers) ── */
+#plot-wrap{
+  flex:1;display:flex;flex-direction:row;overflow:hidden;
+}
+#ruler-y{
+  width:32px;flex-shrink:0;
+  background:#eef2f6;border-right:1px solid #c4cdd8;
+  display:block;
+}
+#plot-area{
+  flex:1;position:relative;overflow:auto;
+  display:flex;align-items:center;justify-content:center;
+  background:#e8ecf0;
+}
+#grid-canvas{
+  position:absolute;top:0;left:0;
+  pointer-events:none;z-index:0;
+  display:block;
+}
+#preview{
+  position:relative;z-index:1;
+  margin:60px;flex-shrink:0;
+}
+#ruler-x{
+  height:26px;flex-shrink:0;display:block;
+  background:#eef2f6;border-top:1px solid #c4cdd8;
+  margin-left:32px;
+  width:calc(100% - 32px);
+}
 
 input.ti{
   background:#f8fafc;border:1px solid var(--border);border-radius:5px;
@@ -151,23 +227,15 @@ button:disabled{opacity:.4;cursor:default}
 /* ── Preview pane ── */
 #preview-pane{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
 
-.preview-wrap{
-  flex:1;overflow:auto;display:flex;
-  align-items:flex-start;justify-content:center;padding:40px;
-  background:
-    radial-gradient(circle,rgba(0,107,107,.07) 1px,transparent 1px) 0 0/22px 22px,
-    #f4f7fb;
-}
-
-/* SVG floats freely — overflow visible so elements can be dragged beyond the canvas bounds */
-.preview-wrap svg{display:block;overflow:visible;
+/* SVG floats freely — overflow visible so elements can be dragged beyond canvas bounds */
+#preview svg{display:block;overflow:visible;
   filter:drop-shadow(0 4px 18px rgba(0,0,0,.13))}
-.preview-wrap [data-fline]{cursor:grab}
-.preview-wrap [data-fline]:hover{
+#preview [data-fline]{cursor:grab}
+#preview [data-fline]:hover{
   filter:brightness(.9) drop-shadow(0 0 7px rgba(0,107,107,.9)) drop-shadow(0 0 2px rgba(0,107,107,.6));
   cursor:pointer}
-.preview-wrap [data-fline].dragging{cursor:grabbing;opacity:.75;filter:none}
-.preview-wrap .psel{
+#preview [data-fline].dragging{cursor:grabbing;opacity:.75;filter:none}
+#preview .psel{
   filter:brightness(.88) drop-shadow(0 0 10px #0080C7) drop-shadow(0 0 3px #0080C7) !important}
 [data-sel-ring]{pointer-events:none}
 [data-canvas-outline]{pointer-events:none}
@@ -234,42 +302,26 @@ input[type="color"].ti-color{
 
   <div class="tools-bar">
 
-    <!-- Canvas resize -->
+    <!-- Resize / Scale (modal) -->
     <div class="tb-group">
-      <span class="tb-label">Canvas</span>
-      <div class="tb-sub">
-        <label>W</label>
-        <input id="gp-w" class="ti ti-n" type="number" min="1" placeholder="—" oninput="onWChange(this.value)">
-      </div>
-      <button class="lock-btn on" id="lock-btn" onclick="toggleLock()" title="Lock aspect ratio">⛓</button>
-      <div class="tb-sub">
-        <label>H</label>
-        <input id="gp-h" class="ti ti-n" type="number" min="1" placeholder="—" oninput="onHChange(this.value)">
-      </div>
-      <button onclick="applyResize()">Resize</button>
-    </div>
-
-    <!-- Scale -->
-    <div class="tb-group">
-      <span class="tb-label">Scale</span>
-      <div class="tb-sub">
-        <label>×</label>
-        <input id="gp-scale" class="ti ti-n" type="number" value="2" min="0.01" step="0.25">
-      </div>
-      <button onclick="applyScale()">Apply</button>
+      <button onclick="openResizeModal()">Resize / Scale</button>
     </div>
 
     <!-- Trim margins -->
     <div class="tb-group">
-      <span class="tb-label">Trim</span>
-      <button onclick="trimWhitespace()" title="Fit viewBox tightly around content">Trim Margins</button>
+      <button onclick="trimWhitespace()" title="Fit bounds tightly around all content">Trim Margins</button>
+    </div>
+
+    <!-- Active Region -->
+    <div class="tb-group">
+      <button id="btn-ar" onclick="openActiveRegionModal()" title="Set active export region">Active Region</button>
     </div>
 
     <!-- Find & Replace -->
     <div class="tb-group">
-      <span class="tb-label">Replace</span>
-      <input id="gp-find" class="ti ti-t" placeholder="Find…" onkeydown="if(event.key==='Enter')applyReplace()">
-      <input id="gp-repl" class="ti ti-t" placeholder="Replace with…" onkeydown="if(event.key==='Enter')applyReplace()">
+      <span class="tb-label">Find</span>
+      <input id="gp-find" class="ti" style="width:80px" placeholder="Find…" onkeydown="if(event.key==='Enter')applyReplace()">
+      <input id="gp-repl" class="ti" style="width:80px" placeholder="Replace…" onkeydown="if(event.key==='Enter')applyReplace()">
       <button onclick="applyReplace()">Replace All</button>
       <span id="repl-msg"></span>
     </div>
@@ -323,7 +375,7 @@ input[type="color"].ti-color{
 
     <div class="pane" id="preview-pane">
       <div class="pane-hdr">
-        <span>Preview <span class="pane-hint">— drag to move · double-click to edit</span></span>
+        <span>Preview <span class="pane-hint">— drag to move · double-click to edit · grid = pixel coords</span></span>
         <div class="ctl">
           <button onclick="fitSVG()">Fit</button>
           <button onclick="resetSVG()">1:1</button>
@@ -332,7 +384,15 @@ input[type="color"].ti-color{
           <button onclick="setCanvasZoom(canvasZoom+0.1)" title="Zoom in">+</button>
         </div>
       </div>
-      <div class="preview-wrap" id="preview"></div>
+      <!-- Rulers + plot area -->
+      <div id="plot-wrap">
+        <canvas id="ruler-y"></canvas>
+        <div id="plot-area">
+          <canvas id="grid-canvas"></canvas>
+          <div id="preview"></div>
+        </div>
+      </div>
+      <canvas id="ruler-x"></canvas>
       <div class="el-info" id="el-info">Hover over elements to inspect</div>
     </div>
 
@@ -510,6 +570,49 @@ input[type="color"].ti-color{
   </div>
 </div>
 
+<!-- Resize / Scale Modal -->
+<div id="resize-modal" class="editor-modal">
+  <div class="em-box">
+    <div class="em-title">Resize / Scale Canvas</div>
+    <div class="em-row">
+      <label>Width</label>
+      <input type="number" id="rm-w" min="1" oninput="onRmWChange(this.value)">
+      <button class="lock-btn-em on" id="rm-lock" onclick="toggleResizeLock()" title="Lock aspect ratio">⛓</button>
+      <label style="min-width:auto">Height</label>
+      <input type="number" id="rm-h" min="1" oninput="onRmHChange(this.value)">
+    </div>
+    <div class="em-sep"></div>
+    <div class="em-row">
+      <label>Scale ×</label>
+      <input type="number" id="rm-scale" value="1" min="0.01" step="0.1" style="width:80px">
+      <button onclick="applyScaleModal()" style="padding:4px 10px;font-size:.75rem;font-weight:600;border-radius:5px;cursor:pointer;border:1px solid var(--border);background:#f0f4f8;font-family:inherit;">Apply Scale</button>
+    </div>
+    <div class="em-actions">
+      <button class="em-btn-apply" onclick="applyResizeModal()">Apply Resize</button>
+      <button class="em-btn-cancel" onclick="closeResizeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Active Region Modal -->
+<div id="ar-modal" class="editor-modal">
+  <div class="em-box">
+    <div class="em-title">Active Export Region</div>
+    <p style="font-size:.74rem;color:var(--muted);line-height:1.45;">Only elements whose bounding box falls within this region will be included in exports. Use the grid coordinates as reference.</p>
+    <div class="em-grid">
+      <div class="em-field"><label>X min</label><input type="number" id="ar-xmin" placeholder="left edge"></div>
+      <div class="em-field"><label>X max</label><input type="number" id="ar-xmax" placeholder="right edge"></div>
+      <div class="em-field"><label>Y min</label><input type="number" id="ar-ymin" placeholder="top edge"></div>
+      <div class="em-field"><label>Y max</label><input type="number" id="ar-ymax" placeholder="bottom edge"></div>
+    </div>
+    <div class="em-actions">
+      <button class="em-btn-apply" onclick="applyActiveRegion()">Apply</button>
+      <button class="em-btn-cancel" onclick="closeActiveRegionModal()">Cancel</button>
+      <button class="em-btn-reset" onclick="resetActiveRegion()">Clear Region</button>
+    </div>
+  </div>
+</div>
+
 <script>
 'use strict';
 
@@ -521,6 +624,9 @@ let elLineNums  = [];
 let aspectLock  = true;
 let origAspect  = 1;
 let undoStack   = [];
+let activeRegion = { active: false, xmin: 0, ymin: 0, xmax: 0, ymax: 0 };
+let resizeLock   = true;
+let resizeOrigAspect = 1;
 
 /* ═══════════ UTILS ═══════════ */
 const esc = s => String(s)
@@ -879,7 +985,6 @@ function renderPreview(text,mode){
         const h=parseFloat(svg.getAttribute('height')||'0');
         if(w&&h)svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
       }
-      // overflow:visible lets dragged elements render outside the SVG canvas freely
       svg.style.overflow='visible';
     }
   } else {
@@ -887,8 +992,8 @@ function renderPreview(text,mode){
   }
   wrap.onmouseover=onPreviewOver;
   wrap.onmouseout=onPreviewOut;
-  if(mode==='SVG')addPreviewOutline();
   applyCanvasZoom();
+  if(mode==='SVG')setTimeout(drawGrid,80);
 }
 
 function addPreviewOutline(){
@@ -1242,9 +1347,7 @@ function extractSVGDims(raw){
   let w=null,h=null;
   if(wm)w=parseFloat(wm[1]);else if(vb)w=parseFloat(vb[3]);
   if(hm)h=parseFloat(hm[1]);else if(vb)h=parseFloat(vb[4]);
-  if(w!==null)document.getElementById('gp-w').value=w;
-  if(h!==null)document.getElementById('gp-h').value=h;
-  if(w&&h)origAspect=w/h;
+  if(w&&h){origAspect=w/h;resizeOrigAspect=w/h;}
 }
 
 function setSVGRootAttrs(code,updates){
@@ -1262,34 +1365,53 @@ function setSVGRootAttrs(code,updates){
 }
 
 /* ═══════════ TOOLBAR ACTIONS ═══════════ */
-function toggleLock(){
-  aspectLock=!aspectLock;
-  const btn=document.getElementById('lock-btn');
-  btn.classList.toggle('on',aspectLock);
-  btn.title=aspectLock?'Aspect ratio locked':'Aspect ratio unlocked';
+/* --- Resize Modal --- */
+function openResizeModal(){
+  const raw=document.getElementById('raw-input').value;
+  if(raw.trim()){
+    const svgMatch=raw.match(/<svg\b((?:[^>"']|"[^"]*"|'[^']*')*?)>/i);
+    if(svgMatch){
+      const tag=svgMatch[1];
+      const wm=tag.match(/\bwidth=["']?(\d+\.?\d*)["']?/);
+      const hm=tag.match(/\bheight=["']?(\d+\.?\d*)["']?/);
+      const vb=tag.match(/viewBox=["'](\S+)\s+(\S+)\s+(\S+)\s+(\S+)["']/);
+      let w=wm?parseFloat(wm[1]):(vb?parseFloat(vb[3]):null);
+      let h=hm?parseFloat(hm[1]):(vb?parseFloat(vb[4]):null);
+      if(w)document.getElementById('rm-w').value=Math.round(w);
+      if(h)document.getElementById('rm-h').value=Math.round(h);
+      if(w&&h){resizeOrigAspect=w/h;}
+    }
+  }
+  document.getElementById('rm-scale').value=1;
+  document.getElementById('resize-modal').classList.add('open');
 }
-function onWChange(val){
-  if(!aspectLock)return;const w=parseFloat(val);
-  if(isNaN(w)||w<=0||!origAspect)return;
-  document.getElementById('gp-h').value=Math.round(w/origAspect);
+function closeResizeModal(){document.getElementById('resize-modal').classList.remove('open');}
+function toggleResizeLock(){
+  resizeLock=!resizeLock;
+  document.getElementById('rm-lock').classList.toggle('on',resizeLock);
 }
-function onHChange(val){
-  if(!aspectLock)return;const h=parseFloat(val);
-  if(isNaN(h)||h<=0||!origAspect)return;
-  document.getElementById('gp-w').value=Math.round(h*origAspect);
+function onRmWChange(val){
+  if(!resizeLock)return;
+  const w=parseFloat(val);if(isNaN(w)||w<=0||!resizeOrigAspect)return;
+  document.getElementById('rm-h').value=Math.round(w/resizeOrigAspect);
 }
-
-function applyResize(){
-  const newW=parseFloat(document.getElementById('gp-w').value);
-  const newH=parseFloat(document.getElementById('gp-h').value);
+function onRmHChange(val){
+  if(!resizeLock)return;
+  const h=parseFloat(val);if(isNaN(h)||h<=0||!resizeOrigAspect)return;
+  document.getElementById('rm-w').value=Math.round(h*resizeOrigAspect);
+}
+function applyResizeModal(){
+  const newW=parseFloat(document.getElementById('rm-w').value);
+  const newH=parseFloat(document.getElementById('rm-h').value);
   if(isNaN(newW)||isNaN(newH)||newW<=0||newH<=0)return;
   let code=document.getElementById('raw-input').value;
   code=setSVGRootAttrs(code,{width:newW,height:newH});
-  pushCode(code);origAspect=newW/newH;
+  pushCode(code);origAspect=newW/newH;resizeOrigAspect=newW/newH;
+  closeResizeModal();
+  setTimeout(drawGrid,80);
 }
-
-function applyScale(){
-  const f=parseFloat(document.getElementById('gp-scale').value);if(isNaN(f)||f<=0)return;
+function applyScaleModal(){
+  const f=parseFloat(document.getElementById('rm-scale').value);if(isNaN(f)||f<=0)return;
   const raw=document.getElementById('raw-input').value;
   const svgMatch=raw.match(/<svg\b((?:[^>"']|"[^"]*"|'[^']*')*?)>/i);if(!svgMatch)return;
   const tag=svgMatch[1];
@@ -1299,8 +1421,63 @@ function applyScale(){
   if(wm)updates.width=Math.round(parseFloat(wm[1])*f);
   if(hm)updates.height=Math.round(parseFloat(hm[1])*f);
   if(!Object.keys(updates).length)return;
-  pushCode(setSVGRootAttrs(raw,updates));
+  const newCode=setSVGRootAttrs(raw,updates);
+  pushCode(newCode);
+  // re-populate the W/H fields with new values
+  if(updates.width)document.getElementById('rm-w').value=updates.width;
+  if(updates.height)document.getElementById('rm-h').value=updates.height;
+  if(updates.width&&updates.height)resizeOrigAspect=updates.width/updates.height;
+  document.getElementById('rm-scale').value=1;
+  setTimeout(drawGrid,80);
 }
+
+/* --- Active Region --- */
+function openActiveRegionModal(){
+  if(activeRegion.active){
+    document.getElementById('ar-xmin').value=activeRegion.xmin;
+    document.getElementById('ar-xmax').value=activeRegion.xmax;
+    document.getElementById('ar-ymin').value=activeRegion.ymin;
+    document.getElementById('ar-ymax').value=activeRegion.ymax;
+  } else {
+    // pre-fill from current SVG viewBox
+    const svg=document.querySelector('#preview svg');
+    if(svg){
+      const vb=svg.viewBox.baseVal;
+      document.getElementById('ar-xmin').value=Math.round(vb.x);
+      document.getElementById('ar-xmax').value=Math.round(vb.x+vb.width);
+      document.getElementById('ar-ymin').value=Math.round(vb.y);
+      document.getElementById('ar-ymax').value=Math.round(vb.y+vb.height);
+    }
+  }
+  document.getElementById('ar-modal').classList.add('open');
+}
+function closeActiveRegionModal(){document.getElementById('ar-modal').classList.remove('open');}
+function applyActiveRegion(){
+  const xmin=parseFloat(document.getElementById('ar-xmin').value);
+  const xmax=parseFloat(document.getElementById('ar-xmax').value);
+  const ymin=parseFloat(document.getElementById('ar-ymin').value);
+  const ymax=parseFloat(document.getElementById('ar-ymax').value);
+  if(isNaN(xmin)||isNaN(xmax)||isNaN(ymin)||isNaN(ymax)||xmax<=xmin||ymax<=ymin){
+    alert('Invalid region: ensure xmax > xmin and ymax > ymin.');return;
+  }
+  activeRegion={active:true,xmin,xmax,ymin,ymax};
+  document.getElementById('btn-ar').classList.add('ar-on');
+  document.getElementById('btn-ar').textContent='Active Region ✓';
+  closeActiveRegionModal();
+  drawGrid();
+}
+function resetActiveRegion(){
+  activeRegion={active:false,xmin:0,ymin:0,xmax:0,ymax:0};
+  document.getElementById('btn-ar').classList.remove('ar-on');
+  document.getElementById('btn-ar').textContent='Active Region';
+  closeActiveRegionModal();
+  drawGrid();
+}
+
+/* legacy compat — no longer in toolbar but called from old state */
+function toggleLock(){aspectLock=!aspectLock;}
+function onWChange(){}
+function onHChange(){}
 
 function trimWhitespace(){
   const svg=document.querySelector('#preview svg');if(!svg)return;
@@ -1309,6 +1486,7 @@ function trimWhitespace(){
     svg.querySelectorAll('*').forEach(el=>{
       try{
         if(el.closest('defs'))return;
+        if(el.dataset.selRing||el.dataset.canvasOutline)return;
         const bb=el.getBBox();
         if(bb.width>0||bb.height>0){
           minX=Math.min(minX,bb.x);minY=Math.min(minY,bb.y);
@@ -1317,11 +1495,11 @@ function trimWhitespace(){
       }catch(ex){}
     });
     if(minX===Infinity)return;
-    const pad=4;
+    const pad=2;
     const vx=Math.floor(minX-pad),vy=Math.floor(minY-pad);
     const vw=Math.ceil(maxX-minX+pad*2),vh=Math.ceil(maxY-minY+pad*2);
     let code=document.getElementById('raw-input').value;
-    code=setSVGRootAttrs(code,{viewBox:`${vx} ${vy} ${vw} ${vh}`});
+    code=setSVGRootAttrs(code,{viewBox:`${vx} ${vy} ${vw} ${vh}`,width:vw,height:vh});
     pushCode(code);
   }catch(ex){console.warn('Trim failed',ex);}
 }
@@ -1347,8 +1525,18 @@ function pushCode(code){saveUndo();document.getElementById('raw-input').value=co
 
 /* ═══════════ UI ACTIONS ═══════════ */
 function clearInput(){undoStack=[];_syncUndoBtn();document.getElementById('raw-input').value='';process('');}
-function copyInput(){navigator.clipboard.writeText(document.getElementById('raw-input').value).then(()=>flash('btn-ci','✓ Copied'));}
-function copyFmt(){navigator.clipboard.writeText(plainFmt).then(()=>flash('btn-cf','✓ Copied'));}
+function copyInput(){
+  const code=getExportCode();
+  navigator.clipboard.writeText(code).then(()=>flash('btn-ci',activeRegion.active?'✓ Copied (region)':'✓ Copied'));
+}
+function copyFmt(){
+  if(activeRegion.active){
+    const code=getExportCode();
+    navigator.clipboard.writeText(code).then(()=>flash('btn-cf','✓ Copied (region)'));
+  } else {
+    navigator.clipboard.writeText(plainFmt).then(()=>flash('btn-cf','✓ Copied'));
+  }
+}
 let canvasZoom=1.0;
 
 function applyCanvasZoom(){
@@ -1362,6 +1550,7 @@ function applyCanvasZoom(){
     s.style.maxWidth='';
   }
   document.getElementById('zoom-label').textContent=Math.round(canvasZoom*100)+'%';
+  setTimeout(drawGrid,60);
 }
 
 function setCanvasZoom(z){
@@ -1371,8 +1560,8 @@ function setCanvasZoom(z){
 
 function fitSVG(){
   const s=document.querySelector('#preview svg');if(!s)return;
-  const wrap=document.getElementById('preview');
-  const aw=wrap.clientWidth-80,ah=wrap.clientHeight-80;
+  const wrap=document.getElementById('plot-area');
+  const aw=wrap.clientWidth-120,ah=wrap.clientHeight-120;
   const vb=s.viewBox.baseVal;
   const sw=vb&&vb.width?vb.width:parseFloat(s.getAttribute('width')||'0');
   const sh=vb&&vb.height?vb.height:parseFloat(s.getAttribute('height')||'0');
@@ -1854,9 +2043,314 @@ function doInsertLine() {
   closeInsertPopup();
 }
 
+/* ═══════════ COORDINATE GRID ═══════════ */
+
+function adaptiveGridSteps(scale){
+  // scale = screen pixels per viewBox unit
+  // Target ~80 px between major lines
+  const rawMajor=80/scale;
+  const mag=Math.pow(10,Math.floor(Math.log10(rawMajor)));
+  const norm=rawMajor/mag;
+  let nice;
+  if(norm<1.5)     nice=1;
+  else if(norm<3.5)nice=2;
+  else if(norm<7.5)nice=5;
+  else             nice=10;
+  const majorStep=nice*mag;
+  const minorStep=majorStep/5;
+  return{majorStep,minorStep};
+}
+
+function drawGrid(){
+  const svg=document.querySelector('#preview svg');
+  const gc=document.getElementById('grid-canvas');
+  const ry=document.getElementById('ruler-y');
+  const rx=document.getElementById('ruler-x');
+  const plotArea=document.getElementById('plot-area');
+  if(!gc||!ry||!rx||!plotArea)return;
+
+  // If no SVG, clear everything and return
+  if(!svg){gc.width=0;ry.height=0;rx.width=0;return;}
+
+  const vb=svg.viewBox.baseVal;
+  if(!vb||!vb.width||!vb.height)return;
+
+  // Displayed SVG pixel size
+  const svgW=parseFloat(svg.style.width)||vb.width;
+  const svgH=parseFloat(svg.style.height)||vb.height;
+
+  // Scale: screen pixels per viewBox unit
+  const scaleX=svgW/vb.width;
+  const scaleY=svgH/vb.height;
+
+  // --- Size grid canvas to fill the entire scrollable plot-area ---
+  // We need to know the full scroll extent after layout.
+  // Use the larger of clientWidth and scrollWidth once layout settles.
+  const areaW=Math.max(plotArea.scrollWidth, plotArea.clientWidth);
+  const areaH=Math.max(plotArea.scrollHeight, plotArea.clientHeight);
+
+  gc.width=Math.round(areaW);
+  gc.height=Math.round(areaH);
+  gc.style.width=areaW+'px';
+  gc.style.height=areaH+'px';
+
+  // --- Size Y ruler to match plot-area visible height ---
+  const ryH=plotArea.clientHeight;
+  ry.width=32;ry.height=Math.round(ryH);
+  ry.style.height=ryH+'px';
+
+  // --- Size X ruler to match plot-area visible width ---
+  const rxW=plotArea.clientWidth;
+  rx.width=Math.round(rxW);rx.height=24;
+  rx.style.width=rxW+'px';
+
+  // Find where the SVG's top-left corner sits inside the scrollable canvas.
+  // Since #preview has margin:60px and is centered by flexbox:
+  const svgLeft=Math.round((areaW-svgW)/2);
+  const svgTop=Math.round((areaH-svgH)/2);
+
+  // vb origin (vb.x, vb.y) maps to canvas pixel (svgLeft, svgTop)
+  // So canvas pixel px = svgLeft + (vx - vb.x)*scaleX
+  //    canvas pixel py = svgTop  + (vy - vb.y)*scaleY
+
+  // Scroll offsets for ruler alignment
+  const scrollX=plotArea.scrollLeft;
+  const scrollY=plotArea.scrollTop;
+
+  // Adaptive step sizes — keep major lines ~80 px apart on screen
+  const {majorStep,minorStep}=adaptiveGridSteps(scaleX);
+
+  // Coordinate range visible in the entire canvas
+  // From canvas x=0: vx = vb.x + (0 - svgLeft)/scaleX
+  const vxMin=vb.x+(0-svgLeft)/scaleX;
+  const vxMax=vb.x+(areaW-svgLeft)/scaleX;
+  const vyMin=vb.y+(0-svgTop)/scaleY;
+  const vyMax=vb.y+(areaH-svgTop)/scaleY;
+
+  function canvasPx(vx){return svgLeft+(vx-vb.x)*scaleX;}
+  function canvasPy(vy){return svgTop+(vy-vb.y)*scaleY;}
+  function rulerPx(vx){return canvasPx(vx)-scrollX;} // position on ruler (visible coords)
+  function rulerPy(vy){return canvasPy(vy)-scrollY;}
+
+  /* ════════ DRAW GRID CANVAS ════════ */
+  const gctx=gc.getContext('2d');
+  gctx.clearRect(0,0,gc.width,gc.height);
+
+  // SVG white background
+  gctx.fillStyle='#ffffff';
+  gctx.fillRect(svgLeft,svgTop,svgW,svgH);
+
+  const startVX=Math.ceil(vxMin/minorStep)*minorStep;
+  const startVY=Math.ceil(vyMin/minorStep)*minorStep;
+  const startMX=Math.ceil(vxMin/majorStep)*majorStep;
+  const startMY=Math.ceil(vyMin/majorStep)*majorStep;
+
+  // Minor grid lines (every 10 units)
+  gctx.strokeStyle='rgba(100,140,180,0.6)';
+  gctx.lineWidth=0.8;
+  gctx.setLineDash([3,3]);
+  for(let vx=startVX;vx<=vxMax;vx+=minorStep){
+    if(vx%majorStep===0)continue;
+    const px=canvasPx(vx);
+    gctx.beginPath();gctx.moveTo(px,0);gctx.lineTo(px,gc.height);gctx.stroke();
+  }
+  for(let vy=startVY;vy<=vyMax;vy+=minorStep){
+    if(vy%majorStep===0)continue;
+    const py=canvasPy(vy);
+    gctx.beginPath();gctx.moveTo(0,py);gctx.lineTo(gc.width,py);gctx.stroke();
+  }
+
+  // Major grid lines (every 50 units)
+  gctx.strokeStyle='rgba(80,120,165,0.8)';
+  gctx.lineWidth=1;
+  gctx.setLineDash([]);
+  for(let vx=startMX;vx<=vxMax;vx+=majorStep){
+    const px=canvasPx(vx);
+    gctx.beginPath();gctx.moveTo(px,0);gctx.lineTo(px,gc.height);gctx.stroke();
+  }
+  for(let vy=startMY;vy<=vyMax;vy+=majorStep){
+    const py=canvasPy(vy);
+    gctx.beginPath();gctx.moveTo(0,py);gctx.lineTo(gc.width,py);gctx.stroke();
+  }
+
+  // SVG border outline
+  gctx.strokeStyle='rgba(120,140,170,0.6)';
+  gctx.lineWidth=1;
+  gctx.setLineDash([7,4]);
+  gctx.strokeRect(svgLeft,svgTop,svgW,svgH);
+  gctx.setLineDash([]);
+
+  // Active region overlay
+  if(activeRegion.active){
+    const ar=activeRegion;
+    const ax1=canvasPx(ar.xmin),ay1=canvasPy(ar.ymin);
+    const ax2=canvasPx(ar.xmax),ay2=canvasPy(ar.ymax);
+    gctx.fillStyle='rgba(0,0,0,0.16)';
+    gctx.fillRect(svgLeft,svgTop,svgW,ay1-svgTop);
+    gctx.fillRect(svgLeft,ay2,svgW,svgTop+svgH-ay2);
+    gctx.fillRect(svgLeft,ay1,ax1-svgLeft,ay2-ay1);
+    gctx.fillRect(ax2,ay1,svgLeft+svgW-ax2,ay2-ay1);
+    gctx.strokeStyle='rgba(22,163,74,0.9)';
+    gctx.lineWidth=1.5;gctx.setLineDash([6,3]);
+    gctx.strokeRect(ax1,ay1,ax2-ax1,ay2-ay1);
+    gctx.setLineDash([]);
+  }
+
+  /* ════════ DRAW Y RULER ════════ */
+  const ryCtx=ry.getContext('2d');
+  ryCtx.clearRect(0,0,32,ryH);
+  ryCtx.fillStyle='#eef2f6';
+  ryCtx.fillRect(0,0,32,ryH);
+
+  ryCtx.font='11px "Cascadia Code",Consolas,monospace';
+  ryCtx.textAlign='right';
+
+  // Coordinate range visible in the ruler
+  const vyVisMin=vb.y+(scrollY-svgTop)/scaleY;
+  const vyVisMax=vb.y+(scrollY+ryH-svgTop)/scaleY;
+  const startMYv=Math.ceil(vyVisMin/majorStep)*majorStep;
+
+  // Minor ticks
+  ryCtx.strokeStyle='rgba(140,160,185,0.5)';ryCtx.lineWidth=0.6;
+  for(let vy=Math.ceil(vyVisMin/minorStep)*minorStep;vy<=vyVisMax;vy+=minorStep){
+    if(vy%majorStep===0)continue;
+    const py=rulerPy(vy);
+    if(py<0||py>ryH)continue;
+    ryCtx.beginPath();ryCtx.moveTo(28,py);ryCtx.lineTo(32,py);ryCtx.stroke();
+  }
+  // Major ticks + labels
+  ryCtx.strokeStyle='rgba(90,120,160,0.7)';ryCtx.lineWidth=0.8;
+  for(let vy=startMYv;vy<=vyVisMax;vy+=majorStep){
+    const py=rulerPy(vy);
+    if(py<0||py>ryH)continue;
+    ryCtx.beginPath();ryCtx.moveTo(22,py);ryCtx.lineTo(32,py);ryCtx.stroke();
+    ryCtx.save();
+    ryCtx.fillStyle='rgba(60,90,130,0.9)';
+    ryCtx.translate(19,py);ryCtx.rotate(-Math.PI/2);
+    ryCtx.fillText(String(Math.round(vy)),0,4);
+    ryCtx.restore();
+  }
+  // Border line
+  ryCtx.strokeStyle='#c4cdd8';ryCtx.lineWidth=1;
+  ryCtx.beginPath();ryCtx.moveTo(31,0);ryCtx.lineTo(31,ryH);ryCtx.stroke();
+
+  /* ════════ DRAW X RULER ════════ */
+  const rxCtx=rx.getContext('2d');
+  rxCtx.clearRect(0,0,rxW,26);
+  rxCtx.fillStyle='#eef2f6';
+  rxCtx.fillRect(0,0,rxW,26);
+
+  rxCtx.font='11px "Cascadia Code",Consolas,monospace';
+  rxCtx.textAlign='center';
+
+  const vxVisMin=vb.x+(scrollX-svgLeft)/scaleX;
+  const vxVisMax=vb.x+(scrollX+rxW-svgLeft)/scaleX;
+  const startMXv=Math.ceil(vxVisMin/majorStep)*majorStep;
+
+  // Minor ticks
+  rxCtx.strokeStyle='rgba(140,160,185,0.5)';rxCtx.lineWidth=0.6;
+  for(let vx=Math.ceil(vxVisMin/minorStep)*minorStep;vx<=vxVisMax;vx+=minorStep){
+    if(vx%majorStep===0)continue;
+    const px=rulerPx(vx);
+    if(px<0||px>rxW)continue;
+    rxCtx.beginPath();rxCtx.moveTo(px,0);rxCtx.lineTo(px,4);rxCtx.stroke();
+  }
+  // Major ticks + labels
+  rxCtx.strokeStyle='rgba(90,120,160,0.7)';rxCtx.lineWidth=0.8;
+  for(let vx=startMXv;vx<=vxVisMax;vx+=majorStep){
+    const px=rulerPx(vx);
+    if(px<0||px>rxW)continue;
+    rxCtx.beginPath();rxCtx.moveTo(px,0);rxCtx.lineTo(px,9);rxCtx.stroke();
+    rxCtx.fillStyle='rgba(60,90,130,0.9)';
+    rxCtx.fillText(String(Math.round(vx)),px,21);
+  }
+  // Border line
+  rxCtx.strokeStyle='#c4cdd8';rxCtx.lineWidth=1;
+  rxCtx.beginPath();rxCtx.moveTo(0,0);rxCtx.lineTo(rxW,0);rxCtx.stroke();
+}
+
+/* ═══════════ EXPORT WITH ACTIVE REGION ═══════════ */
+function getExportCode(){
+  const raw=document.getElementById('raw-input').value;
+  if(!activeRegion.active)return raw;
+  // Build filtered SVG: remove elements entirely outside active region
+  const svg=document.querySelector('#preview svg');if(!svg)return raw;
+  const vb=svg.viewBox.baseVal;
+  const ar=activeRegion;
+  const lines=plainFmt.split('\n');
+  // Collect fline → element bbox
+  const linesToRemove=new Set();
+  svg.querySelectorAll('[data-fline]').forEach(el=>{
+    try{
+      if(el.closest('defs'))return;
+      const bb=el.getBBox();
+      const elR=bb.x+bb.width, elB=bb.y+bb.height;
+      // entirely outside?
+      if(elR<=ar.xmin||bb.x>=ar.xmax||elB<=ar.ymin||bb.y>=ar.ymax){
+        linesToRemove.add(parseInt(el.dataset.fline,10));
+      }
+    }catch(e){}
+  });
+  const kept=lines.filter((_,i)=>!linesToRemove.has(i+1));
+  let code=kept.join('\n');
+  // Update viewBox and width/height to match active region
+  const newVB=`${ar.xmin} ${ar.ymin} ${ar.xmax-ar.xmin} ${ar.ymax-ar.ymin}`;
+  code=setSVGRootAttrs(code,{viewBox:newVB,width:ar.xmax-ar.xmin,height:ar.ymax-ar.ymin});
+  return code;
+}
+
 /* ═══════════ INIT ═══════════ */
 const dprocess=debounce(v=>process(v),350);
 document.getElementById('raw-input').addEventListener('input',e=>dprocess(e.target.value));
+
+const _plotArea=document.getElementById('plot-area');
+
+// Mouse-wheel zoom centred on cursor
+_plotArea.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const svg=document.querySelector('#preview svg');if(!svg)return;
+
+  const factor=e.deltaY<0?1.12:1/1.12;
+  const newZoom=Math.max(0.08,Math.min(12,canvasZoom*factor));
+  if(newZoom===canvasZoom)return;
+
+  // Remember the content point under the cursor (pre-zoom)
+  const rect=_plotArea.getBoundingClientRect();
+  const mouseX=e.clientX-rect.left;
+  const mouseY=e.clientY-rect.top;
+  const oldContentX=_plotArea.scrollLeft+mouseX;
+  const oldContentY=_plotArea.scrollTop+mouseY;
+  const zoomRatio=newZoom/canvasZoom;
+
+  // Resize SVG
+  canvasZoom=newZoom;
+  const vb=svg.viewBox.baseVal;
+  const sw=vb&&vb.width?vb.width:parseFloat(svg.getAttribute('width')||'0');
+  const sh=vb&&vb.height?vb.height:parseFloat(svg.getAttribute('height')||'0');
+  if(sw>0&&sh>0){
+    svg.style.width=Math.round(sw*canvasZoom)+'px';
+    svg.style.height=Math.round(sh*canvasZoom)+'px';
+  }
+  document.getElementById('zoom-label').textContent=Math.round(canvasZoom*100)+'%';
+
+  // After layout settles, re-anchor scroll so the hovered point stays fixed
+  requestAnimationFrame(()=>{
+    _plotArea.scrollLeft=oldContentX*zoomRatio-mouseX;
+    _plotArea.scrollTop =oldContentY*zoomRatio-mouseY;
+    drawGrid();
+  });
+},{passive:false});
+
+// Redraw rulers when user scrolls the plot area
+_plotArea.addEventListener('scroll',()=>{
+  if(document.querySelector('#preview svg'))drawGrid();
+},{ passive:true });
+
+// Redraw grid when window resizes
+window.addEventListener('resize',debounce(()=>{
+  if(document.querySelector('#preview svg'))drawGrid();
+},150));
+
 loadSample('svg');
 </script>
 </body>
