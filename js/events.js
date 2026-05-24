@@ -64,7 +64,7 @@ function _activateTab(tab) {
       currentShape = 'numberLine';
       document.querySelectorAll('.param-section').forEach(s => s.classList.remove('visible'));
       $('params-numberLine')?.classList.add('visible');
-      document.querySelectorAll('.shape-card').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.shape-card[data-shape]').forEach(b => b.classList.remove('active'));
       document.querySelector('[data-shape="numberLine"]')?.classList.add('active');
     }
     if (stageRow) stageRow.style.display = '';
@@ -100,7 +100,7 @@ function wireAll() {
   });
 
   /* ── Collapsible sub-groups ── */
-  document.querySelectorAll('.sub-group.collapsible .sub-group-title').forEach(titleEl => {
+  document.querySelectorAll('.sub-group.collapsible .sub-group-title:not(.gp-stitle):not(.gp-pt-stitle)').forEach(titleEl => {
     titleEl.addEventListener('click', e => {
       // Don't collapse when the user clicks the enable checkbox or its label
       if (e.target.closest('input[type=checkbox], label')) return;
@@ -110,9 +110,9 @@ function wireAll() {
 
 
   /* ── Shape cards ── */
-  document.querySelectorAll('.shape-card').forEach(btn => {
+  document.querySelectorAll('.shape-card[data-shape]').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.shape-card').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.shape-card[data-shape]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentShape = btn.dataset.shape;
       document.querySelectorAll('.param-section').forEach(s => s.classList.remove('visible'));
@@ -182,10 +182,21 @@ function wireAll() {
     $(id)?.addEventListener('input', () => { resetShading(key); render(); });
   });
 
+  /* ── SVG code pane — editable; manual edits update the preview live ── */
+  $('svgCode')?.addEventListener('input', () => {
+    const code = $('svgCode').value.trim();
+    if (!code) return;
+    $('svgPreview').innerHTML = code;
+    if (typeof _applyPreviewZoom  === 'function') _applyPreviewZoom();
+    if (typeof _applyCanvasOutline === 'function') _applyCanvasOutline();
+    if (typeof _updateDims        === 'function') _updateDims();
+  });
+
   /* ── All other inputs ── */
   const handled = new Set([
     'canvas-pad', 'canvas-scale', 'canvas-rotate',
     'bg-enable', 'bg-color',
+    'svgCode',
     ...Object.keys(SHADING_RESET_INPUTS),
   ]);
   document.querySelectorAll('input:not([type=color]):not([type=file]), select, textarea').forEach(el => {
@@ -446,13 +457,14 @@ function wireAll() {
   /* ── Chart type selector ── */
   function _gpSyncChartType(ct) {
     const panelMap = {
-      line:      ['gp-line-col1',  'gp-line-col2'],
-      bar:       ['gp-bar-col1',   'gp-bar-col2'],
-      histogram: ['gp-hist-col1',  'gp-hist-col2'],
-      pie:       ['gp-pie-col1',   'gp-pie-col2'],
-      lineplot:  ['gp-lp-col1',    'gp-lp-col2'],
-      dotplot:   ['gp-dp-col1',    'gp-dp-col2'],
-      stemleaf:  ['gp-sl-col1',    'gp-sl-col2'],
+      line:       ['gp-line-settings'],
+      bar:        ['gp-bar-settings'],
+      histogram:  ['gp-hist-settings'],
+      pie:        ['gp-pie-settings'],
+      lineplot:   ['gp-lp-settings'],
+      dotplot:    ['gp-dp-settings'],
+      stemleaf:   ['gp-sl-settings'],
+      pictograph: ['gp-pg-main'],
     };
     const allIds = Object.values(panelMap).flat();
     const showIds = panelMap[ct] || panelMap.line;
@@ -464,15 +476,37 @@ function wireAll() {
     if (hidden) hidden.value = ct;
   }
 
-  document.querySelectorAll('.gp-ctype').forEach(btn => {
+  document.querySelectorAll('#tab-grapher .grapher-type-col .shape-card').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.gp-ctype').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('#tab-grapher .grapher-type-col .shape-card').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      currentShape = 'graphPlot';
       _gpSyncChartType(btn.dataset.ct);
       render();
     });
   });
   _gpSyncChartType(val('gp-chart-type') || 'line');
+
+  /* ── Bar chart: single / double mode toggle ── */
+  function _bcSetMode(mode) {
+    const modeEl = $('bc-mode');
+    if (modeEl) modeEl.value = mode;
+    $('bc-mode-btn-single')?.classList.toggle('active', mode === 'single');
+    $('bc-mode-btn-double')?.classList.toggle('active', mode === 'double');
+    const lgd = $('bc-legend-section');
+    if (lgd) lgd.style.display = mode === 'double' ? '' : 'none';
+    const igw = $('bc-inner-gap-wrap');
+    if (igw) igw.style.display = mode === 'double' ? '' : 'none';
+    const hint = $('bc-data-hint');
+    if (hint) hint.textContent = mode === 'double' ? '(Label, Val1, Val2 per line)' : '(Label, Value per line)';
+    const ta = $('bc-data');
+    if (ta) ta.placeholder = mode === 'double'
+      ? 'Apples,25,30\nBananas,40,35\nCherries,18,22\nDates,32,28'
+      : 'Apples,25\nBananas,40\nCherries,18\nDates,32';
+    render();
+  }
+  window._bcSetMode = _bcSetMode;
+  _bcSetMode(val('bc-mode') || 'single');
 
   /* ── Bar chart: auto-Y toggle ── */
   function _bcSyncAutoY() {
@@ -482,10 +516,41 @@ function wireAll() {
   $('bc-auto-y')?.addEventListener('change', _bcSyncAutoY);
   _bcSyncAutoY();
 
+  /* ── Bar chart: alt labels table ── */
+  function _bcSyncAltLblTable() {
+    const wrap  = $('bc-alt-lbl-wrap');
+    const tbody = $('bc-alt-tbody');
+    if (!wrap || !tbody) return;
+    wrap.style.display = chk('bc-alt-lbl') ? '' : 'none';
+    if (!chk('bc-alt-lbl')) return;
+    const items = typeof _parseKVData === 'function' ? _parseKVData(val('bc-data')) : [];
+    // Preserve any values the user already typed
+    const saved = {};
+    tbody.querySelectorAll('input[id^="bc-alt-v"]').forEach(inp => { saved[inp.id] = inp.value; });
+    tbody.innerHTML = items.map((it, i) => {
+      const existing = saved[`bc-alt-v${i}`] || '';
+      return `<tr>
+        <td style="color:#6b7280">${escXml(String(it.value))}</td>
+        <td><input type="text" id="bc-alt-v${i}" placeholder="${escXml(String(it.value))}"
+             value="${escXml(existing)}" oninput="render()"></td>
+      </tr>`;
+    }).join('');
+    // Wire new inputs to wireAll missed them
+    tbody.querySelectorAll('input').forEach(inp => inp.addEventListener('input', () => render()));
+  }
+  // Expose globally for the onchange attribute in HTML
+  window._bcSyncAltLblTable = _bcSyncAltLblTable;
+  $('bc-data')?.addEventListener('input', _bcSyncAltLblTable);
+  _bcSyncAltLblTable();
+
   /* ── Bar chart: single color toggle ── */
   function _bcSyncColorMode() {
     const w = $('bc-single-color-wrap');
     if (w) w.style.display = val('bc-color-mode') === 'single' ? '' : 'none';
+    // Changing the color scheme explicitly clears any per-bar color overrides
+    if (window._bcBarOverrides) {
+      Object.keys(window._bcBarOverrides).forEach(k => delete window._bcBarOverrides[k]);
+    }
   }
   $('bc-color-mode')?.addEventListener('change', _bcSyncColorMode);
   _bcSyncColorMode();

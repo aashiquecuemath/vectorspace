@@ -21,16 +21,19 @@ function applyCanvas(svg) {
     .replace(/ height="[^"]+"/, ` height="${oh}"`);
 }
 
-// Dashed blue border at viewBox boundary — stripped from export.
+// Canvas outline is applied as a CSS style on the SVG element after innerHTML is set.
+// This ensures it never appears in any export path.
 function addCanvasOutline(svg) {
-  const vbM=svg.match(/viewBox="([^"]+)"/);
-  if (!vbM) return svg;
-  const [vx,vy,vw,vh]=vbM[1].trim().split(/\s+/).map(Number);
-  const r=`<rect data-canvas-outline="true" x="${vx+0.5}" y="${vy+0.5}" width="${vw-1}" height="${vh-1}" fill="none" stroke="#4A9EFF" stroke-width="1.5" stroke-dasharray="6 4" opacity="0.9" pointer-events="none"/>`;
-  // Insert at end so it renders above background and shape content
-  const last=svg.lastIndexOf('</svg>');
-  if(last===-1) return svg;
-  return svg.slice(0,last)+r+'\n'+svg.slice(last);
+  return svg;
+}
+
+// Call this after $('svgPreview').innerHTML is set to draw the dashed border.
+function _applyCanvasOutline() {
+  const svgEl = $('svgPreview')?.querySelector('svg');
+  if (!svgEl) return;
+  svgEl.style.outline = '1.5px dashed rgba(74,158,255,0.9)';
+  svgEl.style.outlineOffset = '-1px';
+  svgEl.style.boxSizing = 'border-box';
 }
 
 // Inject a solid background rect when the user enables the BG colour option.
@@ -43,6 +46,73 @@ function applyBackground(svg) {
   const [vx, vy, vw, vh] = vbM[1].trim().split(/\s+/).map(Number);
   const rect = `<rect x="${vx}" y="${vy}" width="${vw}" height="${vh}" fill="${escXml(color)}" data-bg="true"/>`;
   return svg.replace(/(<svg[^>]*>)/, '$1\n' + rect);
+}
+
+// Override the SVG viewBox/dimensions with explicitly set bounds.
+function applyActiveRegion(svg) {
+  if (!$('canvas-ar-enabled')?.checked) return svg;
+  const xmin = parseFloat(val('canvas-ar-xmin'));
+  const xmax = parseFloat(val('canvas-ar-xmax'));
+  const ymin = parseFloat(val('canvas-ar-ymin'));
+  const ymax = parseFloat(val('canvas-ar-ymax'));
+  if (isNaN(xmin)||isNaN(xmax)||isNaN(ymin)||isNaN(ymax)) return svg;
+  const w = xmax - xmin, h = ymax - ymin;
+  if (w <= 0 || h <= 0) return svg;
+  return svg
+    .replace(/viewBox="[^"]+"/, `viewBox="${xmin} ${ymin} ${w} ${h}"`)
+    .replace(/ width="[^"]+"/, ` width="${Math.round(w)}"`)
+    .replace(/ height="[^"]+"/, ` height="${Math.round(h)}"`);
+}
+
+function _openActiveRegionModal() {
+  const modal = $('active-region-modal');
+  if (!modal) return;
+  // Pre-fill modal inputs from stored hidden inputs
+  const xmin = val('canvas-ar-xmin'), xmax = val('canvas-ar-xmax');
+  const ymin = val('canvas-ar-ymin'), ymax = val('canvas-ar-ymax');
+  $('ar-xmin').value = xmin; $('ar-xmax').value = xmax;
+  $('ar-ymin').value = ymin; $('ar-ymax').value = ymax;
+  modal.classList.add('ar-open');
+}
+
+function _closeActiveRegionModal() {
+  $('active-region-modal')?.classList.remove('ar-open');
+}
+
+function _arFromSVG() {
+  const svgEl = $('svgPreview')?.querySelector('svg');
+  if (!svgEl) return;
+  const vb = svgEl.viewBox.baseVal;
+  if (!vb || !vb.width) return;
+  $('ar-xmin').value = fmt(vb.x);
+  $('ar-xmax').value = fmt(vb.x + vb.width);
+  $('ar-ymin').value = fmt(vb.y);
+  $('ar-ymax').value = fmt(vb.y + vb.height);
+}
+
+function _arApply() {
+  $('canvas-ar-xmin').value = $('ar-xmin').value;
+  $('canvas-ar-xmax').value = $('ar-xmax').value;
+  $('canvas-ar-ymin').value = $('ar-ymin').value;
+  $('canvas-ar-ymax').value = $('ar-ymax').value;
+  $('canvas-ar-enabled').checked = true;
+  _closeActiveRegionModal();
+  _arUpdateBtn();
+  if (typeof render === 'function') render();
+}
+
+function _arReset() {
+  $('canvas-ar-enabled').checked = false;
+  _closeActiveRegionModal();
+  _arUpdateBtn();
+  if (typeof render === 'function') render();
+}
+
+function _arUpdateBtn() {
+  const btn = $('ar-btn');
+  if (!btn) return;
+  if ($('canvas-ar-enabled')?.checked) btn.classList.add('ar-active');
+  else btn.classList.remove('ar-active');
 }
 
 // Apply rotation by wrapping content in a <g transform="rotate(...)">

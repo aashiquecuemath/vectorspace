@@ -1296,6 +1296,8 @@ function generateShape() {
     svgPatterns:     generatePatterns,
     svgTable:        generateSVGTable,
     geometry3d:      generateGeometry3D,
+    analogBalance:   generateBalance,
+    panBalance:      renderPanBalance,
   };
   return (map[currentShape] || (() => ''))();
 }

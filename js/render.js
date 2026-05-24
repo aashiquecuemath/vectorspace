@@ -2,11 +2,15 @@
 
 let previewZoom = 1.0;
 
+function _setPreview(svg) {
+  $('svgPreview').innerHTML = typeof svgApplyMath === 'function' ? svgApplyMath(svg) : svg;
+}
+
 function render() {
   let svg = generateShape();
 
   if (currentShape === 'stage') {
-    $('svgPreview').innerHTML = svg;
+    _setPreview(svg);
     $('svgCode').value = typeof getStageCleanSVG === 'function' ? getStageCleanSVG() : svg;
     if (typeof attachStageDragHandlers === 'function') attachStageDragHandlers();
     _applyPreviewZoom();
@@ -14,21 +18,47 @@ function render() {
     return;
   }
   if (currentShape === 'svgCharacter') {
-    $('svgPreview').innerHTML = svg;
+    _setPreview(svg);
     $('svgCode').value = svg;
     _applyPreviewZoom();
     _updateDims();
     return;
   }
   if (currentShape === 'svgPatterns') {
-    $('svgPreview').innerHTML = svg;
+    _setPreview(svg);
     $('svgCode').value = svg;
     _applyPreviewZoom();
     _updateDims();
     return;
   }
+  if (currentShape === 'analogBalance') {
+    svg = applyActiveRegion(svg);
+    svg = applyCanvas(svg);
+    svg = applyRotation(svg);
+    svg = applyBackground(svg);
+    _setPreview(svg);
+    $('svgCode').value = getCleanSVG();
+    if (typeof attachBalanceDragHandlers === 'function') attachBalanceDragHandlers();
+    _applyPreviewZoom();
+    _applyCanvasOutline();
+    _updateDims();
+    return;
+  }
+  if (currentShape === 'panBalance') {
+    svg = applyActiveRegion(svg);
+    svg = applyCanvas(svg);
+    svg = applyRotation(svg);
+    svg = applyBackground(svg);
+    _setPreview(svg);
+    $('svgCode').value = getCleanSVG();
+    if (typeof attachPanBalanceDragHandlers === 'function') attachPanBalanceDragHandlers();
+    _applyPreviewZoom();
+    _applyCanvasOutline();
+    _updateDims();
+    return;
+  }
   if (currentShape === 'svgTable') {
-    $('svgPreview').innerHTML = svg;
+    _setPreview(svg);
     $('svgCode').value = svg;
     _updateDims();
     if (typeof attachSTClickHandlers === 'function') attachSTClickHandlers();
@@ -36,22 +66,25 @@ function render() {
     return;
   }
 
+  svg = applyActiveRegion(svg);
   svg = applyCanvas(svg);
   svg = applyRotation(svg);
   svg = applyBackground(svg);
-  svg = addCanvasOutline(svg);
   svg = injectLineOverlays(svg);
   svg = injectTextOverlays(svg);
   svg = injectImageOverlays(svg);
 
-  $('svgPreview').innerHTML = svg;
+  _setPreview(svg);
   $('svgCode').value = getCleanSVG();
   attachDragHandlers();
   attachImageDragHandlers();
   attachVertexHandles();
   attachAngleDragHandles();
   attachDblClickEditing();
+  if (typeof _gpAttachLabelDrag === 'function') _gpAttachLabelDrag();
+  if (typeof _bcAttachBarClick  === 'function') _bcAttachBarClick();
   _applyPreviewZoom();
+  _applyCanvasOutline();
   _updateDims();
 }
 

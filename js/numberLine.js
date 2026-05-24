@@ -126,7 +126,7 @@ function _renderLabel(text, x, baselineY, anchor, fontSize, fontFamily, bold, it
 
   if (!info) {
     const st = `font-family:${ff};font-size:${fontSize}px;font-weight:${fw};font-style:${fs};fill:${color}`;
-    return `<text x="${fmt(x)}" y="${fmt(baselineY)}" text-anchor="${anchor}"${db} style="${st}">${escXml(text.replace(/\$/g, ''))}</text>`;
+    return `<text x="${fmt(x)}" y="${fmt(baselineY)}" text-anchor="${anchor}"${db} style="${st}">${escXml(text)}</text>`;
   }
 
   // For vertCenter: shift baseline so the math box's visual centre lands at baselineY
