@@ -317,6 +317,53 @@ header span { font-size: .78rem; opacity: .7; }
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* ── 3D Mode Picker Modal ── */
+.modal-3d-backdrop {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(10,20,40,.72); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn .18s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; } to { opacity: 1; }
+}
+.modal-3d-card {
+  background: #fff; border-radius: 18px; padding: 32px 28px; max-width: 520px; width: 92%;
+  box-shadow: 0 28px 80px rgba(0,0,0,.24); animation: scaleIn .2s ease;
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(.94) translateY(10px); }
+  to   { opacity: 1; transform: scale(1)   translateY(0); }
+}
+.modal-3d-hdr {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;
+}
+.modal-3d-hdr h2 { font-size: 1.15rem; font-weight: 700; color: var(--text); }
+.modal-3d-hdr button {
+  background: none; border: none; font-size: 1.1rem; cursor: pointer;
+  color: var(--muted); padding: 4px 8px; border-radius: 6px; line-height: 1;
+}
+.modal-3d-hdr button:hover { background: var(--bg); }
+.modal-3d-sub { color: var(--muted); font-size: .875rem; margin-bottom: 24px; }
+.modal-3d-opts { display: flex; gap: 14px; }
+.modal-3d-opt {
+  flex: 1; background: var(--bg); border: 2px solid var(--border); border-radius: 14px;
+  padding: 22px 14px; cursor: pointer; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  transition: border-color .18s, transform .18s, box-shadow .18s;
+  font-family: inherit;
+}
+.modal-3d-opt:hover {
+  border-color: var(--accent5); transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(220,88,10,.14);
+}
+.modal-3d-opt-icon {
+  width: 56px; height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 35% 35%, rgba(220,88,10,.15), rgba(220,88,10,.05));
+}
+.modal-3d-opt h3 { font-size: 1.05rem; font-weight: 700; color: var(--text); }
+.modal-3d-opt p  { font-size: .8rem; color: var(--muted); line-height: 1.45; }
+
 /* ── App layout ── */
 .app {
   display: grid;

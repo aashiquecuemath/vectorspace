@@ -4229,6 +4229,44 @@ Books read,15,8,12,20,11,18,9</textarea>
   <div id="ov-edit-body" class="ov-edit-body"></div>
 </div>
 
+<!-- ════ 3D Mode Picker Modal ════ -->
+<div id="modal-3d" class="modal-3d-backdrop" style="display:none" role="dialog" aria-modal="true" aria-labelledby="modal-3d-title">
+  <div class="modal-3d-card">
+    <div class="modal-3d-hdr">
+      <h2 id="modal-3d-title">Choose 3D Mode</h2>
+      <button id="btn-3d-close" aria-label="Close">✕</button>
+    </div>
+    <p class="modal-3d-sub">Select how you'd like to work with 3D shapes</p>
+    <div class="modal-3d-opts">
+      <button class="modal-3d-opt" id="btn-3d-single">
+        <div class="modal-3d-opt-icon">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+            <polygon points="18,4 32,12 18,20 4,12" fill="rgba(220,88,10,.18)" stroke="#DC580A" stroke-width="1.5" stroke-linejoin="round"/>
+            <polygon points="4,12 18,20 18,32 4,24" fill="rgba(220,88,10,.08)" stroke="#DC580A" stroke-width="1.5" stroke-linejoin="round"/>
+            <polygon points="32,12 18,20 18,32 32,24" fill="rgba(220,88,10,.13)" stroke="#DC580A" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h3>Single</h3>
+        <p>Label &amp; annotate a single 3D geometric shape</p>
+      </button>
+      <button class="modal-3d-opt" id="btn-3d-stack">
+        <div class="modal-3d-opt-icon">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+            <polygon points="18,2 31,9 18,16 5,9" fill="rgba(220,88,10,.18)" stroke="#DC580A" stroke-width="1.5" stroke-linejoin="round"/>
+            <polygon points="5,9 18,16 18,23 5,16" fill="rgba(220,88,10,.08)" stroke="#DC580A" stroke-width="1.5" stroke-linejoin="round"/>
+            <polygon points="31,9 18,16 18,23 31,16" fill="rgba(220,88,10,.13)" stroke="#DC580A" stroke-width="1.5" stroke-linejoin="round"/>
+            <polygon points="18,13 31,20 18,27 5,20" fill="rgba(220,88,10,.14)" stroke="#DC580A" stroke-width="1.5" stroke-linejoin="round"/>
+            <polygon points="5,20 18,27 18,34 5,27" fill="rgba(220,88,10,.06)" stroke="#DC580A" stroke-width="1.5" stroke-linejoin="round"/>
+            <polygon points="31,20 18,27 18,34 31,27" fill="rgba(220,88,10,.10)" stroke="#DC580A" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h3>Stack</h3>
+        <p>Stack &amp; arrange 3D shapes on a grid canvas</p>
+      </button>
+    </div>
+  </div>
+</div>
+
 <script src="js/utils.js"></script>
 <script src="js/state.js"></script>
 <script src="js/shading.js"></script>

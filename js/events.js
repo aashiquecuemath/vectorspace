@@ -633,9 +633,27 @@ function wireAll() {
     else _showHome();
   }
 
+  /* ── 3D mode picker modal ── */
+  const modal3d = document.getElementById('modal-3d');
+  function _open3dModal()  { if (modal3d) modal3d.style.display = 'flex'; }
+  function _close3dModal() { if (modal3d) modal3d.style.display = 'none'; }
+
+  $('btn-3d-close')?.addEventListener('click', _close3dModal);
+  modal3d?.addEventListener('click', e => { if (e.target === modal3d) _close3dModal(); });
+
+  $('btn-3d-single')?.addEventListener('click', () => {
+    _close3dModal();
+    window.open('../3dimagemarker/3d-shape-maker-v2.html', '_blank');
+  });
+  $('btn-3d-stack')?.addEventListener('click', () => {
+    _close3dModal();
+    window.location.hash = 'cube3d';
+  });
+
   document.querySelectorAll('.home-tile').forEach(tile => {
     tile.addEventListener('click', () => {
       const tool = tile.dataset.tool;
+      if (tool === 'cube3d') { _open3dModal(); return; }
       if (tool) window.location.hash = tool;
     });
   });
