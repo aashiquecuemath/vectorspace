@@ -65,7 +65,11 @@ button.warn:hover{background:#ffe8b8}
 .hint{font-size:10px;color:var(--muted);font-style:italic;margin:2px 0 5px;line-height:1.4}
 b{color:var(--text);font-weight:600}
 .canvas-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:linear-gradient(135deg,#e8f0f8 0%,#edf5f2 100%)}
-#svg-canvas{background:#1a2a4a;border-radius:10px;cursor:grab;box-shadow:0 4px 32px rgba(0,107,107,.25),0 0 0 1px rgba(0,107,107,.1)}
+#svg-canvas{background:#f6f2e4;border-radius:10px;cursor:grab;box-shadow:0 4px 32px rgba(0,0,0,.15),0 0 0 1px rgba(0,0,0,.08)}
+.theme-grid{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0 8px}
+.theme-swatch{width:30px;height:30px;border-radius:8px;cursor:pointer;border:2.5px solid transparent;transition:transform .15s,box-shadow .15s;flex-shrink:0;position:relative;outline:none}
+.theme-swatch:hover{transform:scale(1.18)}
+.theme-swatch.active{box-shadow:0 0 0 2.5px var(--accent2)}
 #svg-canvas:active{cursor:grabbing}
 .canvas-hint{font-size:10px;color:var(--muted);text-align:center}
 </style>
@@ -137,13 +141,16 @@ b{color:var(--text);font-weight:600}
     <label>Vertex label size: <b id="vlabel-size-val">13</b>px</label>
     <input type="range" id="vlabel-size" min="6" max="30" value="13">
   </div>
+  <h3 style="margin-top:10px">Themes</h3>
+  <p class="hint">Click a theme or edit colors individually.</p>
+  <div class="theme-grid" id="theme-grid"></div>
   <div class="row">
-    <div class="ctrl"><label>Vertex color</label><input type="color" id="vertex-color" value="#ffd700"></div>
-    <div class="ctrl"><label>Edge color</label><input type="color" id="edge-color" value="#3a70ff"></div>
+    <div class="ctrl"><label>Vertex color</label><input type="color" id="vertex-color" value="#cc4400"></div>
+    <div class="ctrl"><label>Edge color</label><input type="color" id="edge-color" value="#1a48c8"></div>
   </div>
   <div class="row" style="margin-top:4px">
-    <div class="ctrl"><label>Face color</label><input type="color" id="face-color" value="#4070ee"></div>
-    <div class="ctrl"><label>Canvas bg</label><input type="color" id="bg-color" value="#1a2a4a"></div>
+    <div class="ctrl"><label>Face color</label><input type="color" id="face-color" value="#3366ee"></div>
+    <div class="ctrl"><label>Canvas bg</label><input type="color" id="bg-color" value="#f6f2e4"></div>
   </div>
   <div class="ctrl">
     <label>Face opacity: <b id="face-op-val">0.13</b></label>
@@ -200,12 +207,12 @@ b{color:var(--text);font-weight:600}
   <h3>Font</h3>
   <div class="row">
     <div class="ctrl"><label>Size (px)</label><input type="number" id="f-size" value="18" min="6" max="72"></div>
-    <div class="ctrl"><label>Color</label><input type="color" id="f-color" value="#ffffff"></div>
+    <div class="ctrl"><label>Color</label><input type="color" id="f-color" value="#000000"></div>
   </div>
   <div style="display:flex;gap:12px;margin-top:4px">
     <label class="chk"><input type="checkbox" id="f-bold"> Bold</label>
     <label class="chk"><input type="checkbox" id="f-italic"> Italic</label>
-    <label class="chk"><input type="checkbox" id="f-bg" checked> Background</label>
+    <label class="chk"><input type="checkbox" id="f-bg"> Background</label>
   </div>
 
   <h3>Dimension Line</h3>
@@ -213,13 +220,14 @@ b{color:var(--text);font-weight:600}
     <label>Type</label>
     <select id="dim-type">
       <option value="none">None (text only)</option>
+      <option value="line">Line (—)</option>
       <option value="arrow">Arrows (↔)</option>
       <option value="tick">Ticks (|—|)</option>
       <option value="bracket">Brackets ([—])</option>
     </select>
   </div>
   <div class="row">
-    <div class="ctrl"><label>Color</label><input type="color" id="dim-color" value="#ff6080"></div>
+    <div class="ctrl"><label>Color</label><input type="color" id="dim-color" value="#000000"></div>
     <div class="ctrl"><label>Thickness</label><input type="number" id="dim-thick" value="1.5" min="0.5" max="8" step="0.5"></div>
   </div>
   <div class="row">
@@ -340,13 +348,27 @@ const SHAPES={
   },
 };
 
+// ─── THEMES ──────────────────────────────────────────────────────────────────
+const THEMES=[
+  {name:'Blueprint', edge:'#1a48c8',face:'#3366ee',vertex:'#cc4400'},
+  {name:'Forest',    edge:'#1a6630',face:'#2a8844',vertex:'#cc4400'},
+  {name:'Coral',     edge:'#b83318',face:'#d95533',vertex:'#1a4488'},
+  {name:'Violet',    edge:'#5533aa',face:'#7755cc',vertex:'#cc6600'},
+  {name:'Teal',      edge:'#006666',face:'#008888',vertex:'#cc4400'},
+  {name:'Steel',     edge:'#1a3a6e',face:'#2a5599',vertex:'#cc5500'},
+  {name:'Crimson',   edge:'#881e1e',face:'#aa2e2e',vertex:'#225588'},
+  {name:'Amber',     edge:'#7a4400',face:'#aa6611',vertex:'#1a4488'},
+  {name:'Graphite',  edge:'#2e3a44',face:'#4a5a66',vertex:'#cc3300'},
+  {name:'Mono',      edge:'#111111',face:'#333333',vertex:'#884400'},
+];
+
 // ─── STATE ────────────────────────────────────────────────────────────────────
 const S={
   shape:'cube',verts:{},edges:[],faces:[],
   rotM:[[1,0,0],[0,1,0],[0,0,1]],
   zoom:150,showVerts:true,showHidden:true,showFaces:true,perspective:true,
-  vlabelSize:13,vertexColor:'#ffd700',edgeColor:'#3a70ff',edgeThick:1.6,
-  faceColor:'#4070ee',faceOpacity:.13,bgColor:'#1a2a4a',
+  vlabelSize:13,vertexColor:'#cc4400',edgeColor:'#1a48c8',edgeThick:1.6,
+  faceColor:'#3366ee',faceOpacity:.13,bgColor:'#f6f2e4',
   midpoints:{},labels:[],nextId:1,editingId:null,dims:{},dimScale:1
 };
 
@@ -533,8 +555,11 @@ function drawDimLine(g,defs,p1,p2,lbl,off,nx,ny){
   const c=lbl.dimColor,th=lbl.dimThick,ext=lbl.dimExt,asz=lbl.arrowSz;
   const d1={x:p1.x+nx*off,y:p1.y+ny*off},d2={x:p2.x+nx*off,y:p2.y+ny*off};
   const sa={stroke:c,'stroke-width':th,fill:'none'};
-  if(lbl.dimDash)sa['stroke-dasharray']=lbl.dimDash;
-  if(lbl.dimType==='arrow'){
+  // arrows always drawn solid — dashes make arrowheads look broken
+  if(lbl.dimDash && lbl.dimType!=='arrow')sa['stroke-dasharray']=lbl.dimDash;
+  if(lbl.dimType==='line'){
+    g.appendChild(svg_el('line',{x1:d1.x,y1:d1.y,x2:d2.x,y2:d2.y,...sa}));
+  } else if(lbl.dimType==='arrow'){
     const ms='ams'+lbl.id,me='ame'+lbl.id;
     defs.appendChild(makeArrow(ms,c,asz,'auto-start-reverse'));
     defs.appendChild(makeArrow(me,c,asz,'auto'));
@@ -573,7 +598,7 @@ function drawPointLabel(g,pt,lbl){
 }
 function placeText(g,tx,ty,lbl){
   const txt=lbl.text,fs=lbl.fontSize,approxW=txt.length*fs*.58;
-  if(lbl.bg)g.appendChild(svg_el('rect',{x:tx-approxW/2-3,y:ty-fs*.6-3,width:approxW+6,height:fs+6,fill:'rgba(13,27,46,.82)',rx:'2'}));
+  if(lbl.bg)g.appendChild(svg_el('rect',{x:tx-approxW/2-3,y:ty-fs*.6-3,width:approxW+6,height:fs+6,fill:'rgba(255,255,255,.88)',rx:'2'}));
   const attrs={x:tx,y:ty,fill:lbl.fontColor,'font-size':fs,'font-family':'sans-serif','text-anchor':'middle','dominant-baseline':'middle'};
   if(lbl.fontBold)attrs['font-weight']='bold';
   if(lbl.fontItalic)attrs['font-style']='italic';
@@ -809,11 +834,35 @@ document.getElementById('perspective-proj').onchange=e=>{S.perspective=e.target.
 document.getElementById('zoom').oninput=e=>{S.zoom=parseInt(e.target.value);document.getElementById('zoom-val').textContent=S.zoom;render()};
 document.getElementById('edge-thick').oninput=e=>{S.edgeThick=parseFloat(e.target.value);document.getElementById('edge-thick-val').textContent=S.edgeThick.toFixed(1);render()};
 document.getElementById('vlabel-size').oninput=e=>{S.vlabelSize=parseInt(e.target.value);document.getElementById('vlabel-size-val').textContent=S.vlabelSize;render()};
-document.getElementById('vertex-color').oninput=e=>{S.vertexColor=e.target.value;render()};
-document.getElementById('edge-color').oninput=e=>{S.edgeColor=e.target.value;render()};
-document.getElementById('face-color').oninput=e=>{S.faceColor=e.target.value;render()};
+document.getElementById('vertex-color').oninput=e=>{S.vertexColor=e.target.value;_deselectThemes();render()};
+document.getElementById('edge-color').oninput=e=>{S.edgeColor=e.target.value;_deselectThemes();render()};
+document.getElementById('face-color').oninput=e=>{S.faceColor=e.target.value;_deselectThemes();render()};
+function _deselectThemes(){document.querySelectorAll('.theme-swatch').forEach(el=>el.classList.remove('active'));}
 document.getElementById('face-opacity').oninput=e=>{S.faceOpacity=parseFloat(e.target.value);document.getElementById('face-op-val').textContent=S.faceOpacity.toFixed(2);render()};
 document.getElementById('bg-color').oninput=e=>{S.bgColor=e.target.value;document.getElementById('svg-canvas').style.background=S.bgColor;};
+
+// ─── THEMES ──────────────────────────────────────────────────────────────────
+function applyTheme(idx){
+  const t=THEMES[idx];
+  S.edgeColor=t.edge;S.faceColor=t.face;S.vertexColor=t.vertex;
+  document.getElementById('edge-color').value=t.edge;
+  document.getElementById('face-color').value=t.face;
+  document.getElementById('vertex-color').value=t.vertex;
+  document.querySelectorAll('.theme-swatch').forEach((el,i)=>el.classList.toggle('active',i===idx));
+  render();
+}
+function renderThemeGrid(){
+  const grid=document.getElementById('theme-grid');
+  THEMES.forEach((t,i)=>{
+    const btn=document.createElement('button');
+    btn.className='theme-swatch'+(i===0?' active':'');
+    btn.title=t.name;
+    btn.style.cssText=`background:${t.face};border-color:${t.edge};`;
+    btn.setAttribute('aria-label',t.name);
+    btn.addEventListener('click',()=>applyTheme(i));
+    grid.appendChild(btn);
+  });
+}
 
 function resetView(){
   const rx=-23,ry=32;
@@ -872,6 +921,7 @@ function fallbackCopy(str,btn,reset){
 }
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
+renderThemeGrid();
 resetView();
 loadShape('cube');
 </script>
