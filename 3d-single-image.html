@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Shape Marker · Vector Space</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0f4f8;--panel:#ffffff;--border:#d1d9e0;
+  --accent:#006B6B;--accent2:#0080C7;--text:#1a2332;--muted:#5a6a7a;
+  --radius:8px;--shadow:0 2px 12px rgba(0,0,0,.08);
+}
+body{display:flex;flex-direction:column;height:100vh;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+header{
+  background:linear-gradient(90deg,#005858 0%,#006B6B 60%,#0074a0 100%);
+  color:#fff;padding:10px 18px;display:flex;align-items:center;gap:10px;
+  box-shadow:0 2px 12px rgba(0,80,80,.3);flex-shrink:0;
+}
+header svg{flex-shrink:0}
+header h1{font-size:1rem;font-weight:700;letter-spacing:-.01em}
+header span{font-size:.75rem;opacity:.7;margin-left:2px}
+#back-btn{
+  margin-left:auto;display:inline-flex;align-items:center;gap:5px;
+  background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);
+  color:#fff;border-radius:7px;padding:5px 13px;font-size:.8rem;font-weight:600;
+  cursor:pointer;text-decoration:none;font-family:inherit;transition:background .15s;
+  flex-shrink:0;
+}
+#back-btn:hover{background:rgba(255,255,255,.25)}
+.main{display:flex;flex:1;overflow:hidden}
+.panel{width:280px;background:var(--panel);padding:10px 12px;overflow-y:auto;flex-shrink:0;border-right:1px solid var(--border)}
+#right-panel{border-left:1px solid var(--border);border-right:none}
+h3{color:var(--accent);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;margin:14px 0 5px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+h3:first-child{margin-top:4px}
+.ctrl{margin-bottom:6px}
+label{font-size:11.5px;color:var(--muted);display:block;margin-bottom:2px;font-weight:600}
+select,input[type=text],input[type=number]{
+  width:100%;padding:4px 7px;background:#fafbfc;border:1px solid var(--border);
+  border-radius:5px;color:var(--text);font-size:11.5px;font-family:inherit;transition:border-color .15s
+}
+select:focus,input[type=text]:focus,input[type=number]:focus{outline:none;border-color:var(--accent2);background:#fff}
+input[type=color]{width:100%;height:28px;padding:1px 3px;background:#fff;border:1px solid var(--border);border-radius:5px;cursor:pointer}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.chk{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);margin:3px 0;cursor:pointer}
+.chk input{accent-color:var(--accent)}
+.row{display:flex;gap:6px}
+.row>.ctrl{flex:1}
+button{display:inline-block;padding:5px 10px;background:#e6f2f2;color:#005858;border:1px solid #b8d8d8;border-radius:5px;cursor:pointer;font-size:11px;margin:1px;font-family:inherit;transition:background .15s}
+button:hover{background:#c5e5e5}
+button.red{background:#fff0f0;color:#b03030;border-color:#f0b0b0}
+button.red:hover{background:#ffd8d8}
+button.full{width:100%;margin:2px 0}
+button.accent{background:var(--accent);color:#fff;border-color:#004f4f}
+button.accent:hover{background:#007f7f}
+button.warn{background:#fff8e8;color:#7a4010;border-color:#e8c880}
+button.warn:hover{background:#ffe8b8}
+.tag{background:#f4f9f9;border-radius:5px;padding:6px 8px;margin:3px 0;border-left:3px solid var(--accent);font-size:11px}
+.tag.editing{border-left-color:#cc8800;background:#fffbee}
+.tag .th{display:flex;justify-content:space-between;align-items:center;gap:3px}
+.tag .tn{color:var(--accent);font-weight:700;flex-shrink:0}
+.tag.editing .tn{color:#cc8800}
+.tag .tv{color:var(--muted);flex:1;padding:0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag .td{color:#99a;font-size:10px;margin-top:2px}
+.hint{font-size:10px;color:var(--muted);font-style:italic;margin:2px 0 5px;line-height:1.4}
+b{color:var(--text);font-weight:600}
+.canvas-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:linear-gradient(135deg,#e8f0f8 0%,#edf5f2 100%)}
+#svg-canvas{background:#1a2a4a;border-radius:10px;cursor:grab;box-shadow:0 4px 32px rgba(0,107,107,.25),0 0 0 1px rgba(0,107,107,.1)}
+#svg-canvas:active{cursor:grabbing}
+.canvas-hint{font-size:10px;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+
+<header>
+  <svg width="24" height="24" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <circle cx="13" cy="15" r="3" fill="rgba(255,255,255,.95)"/>
+    <line x1="13" y1="15" x2="13" y2="3" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <polygon points="13,0 10.5,5 15.5,5" fill="white"/>
+    <line x1="13" y1="15" x2="23" y2="21" stroke="rgba(255,255,255,.8)" stroke-width="2" stroke-linecap="round"/>
+    <polygon points="26,23.5 19.5,22 22,16.5" fill="rgba(255,255,255,.8)"/>
+    <line x1="13" y1="15" x2="3" y2="21" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round"/>
+    <polygon points="0,23.5 4,16.5 6.5,22" fill="rgba(255,255,255,.55)"/>
+  </svg>
+  <h1>3D Shape Marker</h1>
+  <span>v2 &nbsp;·&nbsp; Vector Space</span>
+  <a id="back-btn" href="index.html">&#8592; Vector Space</a>
+</header>
+
+<div class="main">
+
+<!-- LEFT PANEL -->
+<div class="panel">
+  <h3>Shape</h3>
+  <div class="ctrl">
+    <label>Shape Type</label>
+    <select id="shape-select">
+      <option value="cube">Cube</option>
+      <option value="cuboid">Cuboid (rectangular prism)</option>
+      <option value="tetrahedron">Tetrahedron (triangular pyramid)</option>
+      <option value="square-pyramid">Square Pyramid</option>
+      <option value="triangular-prism">Triangular Prism</option>
+      <option value="octahedron">Octahedron</option>
+      <option value="rhombus-prism">Rhombus Prism</option>
+    </select>
+  </div>
+
+  <h3>Dimensions</h3>
+  <p class="hint">Enter any values — the shape scales to fit automatically.</p>
+  <div id="dim-controls"></div>
+
+  <h3>Rotation</h3>
+  <div class="ctrl">
+    <label>Rotate X: <b id="rotx-val">-23°</b></label>
+    <input type="range" id="rot-x" min="-180" max="180" value="-23">
+  </div>
+  <div class="ctrl">
+    <label>Rotate Y: <b id="roty-val">32°</b></label>
+    <input type="range" id="rot-y" min="-180" max="180" value="32">
+  </div>
+
+  <h3>View</h3>
+  <label class="chk"><input type="checkbox" id="show-vertices" checked> Show vertex labels</label>
+  <label class="chk"><input type="checkbox" id="show-hidden" checked> Show hidden edges (dashed)</label>
+  <label class="chk"><input type="checkbox" id="show-faces" checked> Show face shading</label>
+  <label class="chk"><input type="checkbox" id="perspective-proj" checked> Perspective projection</label>
+
+  <div class="ctrl" style="margin-top:8px">
+    <label>Zoom: <b id="zoom-val">150</b></label>
+    <input type="range" id="zoom" min="50" max="350" value="150">
+  </div>
+  <div class="ctrl">
+    <label>Edge thickness: <b id="edge-thick-val">1.6</b></label>
+    <input type="range" id="edge-thick" min="0.3" max="8" step="0.1" value="1.6">
+  </div>
+  <div class="ctrl">
+    <label>Vertex label size: <b id="vlabel-size-val">13</b>px</label>
+    <input type="range" id="vlabel-size" min="6" max="30" value="13">
+  </div>
+  <div class="row">
+    <div class="ctrl"><label>Vertex color</label><input type="color" id="vertex-color" value="#ffd700"></div>
+    <div class="ctrl"><label>Edge color</label><input type="color" id="edge-color" value="#3a70ff"></div>
+  </div>
+  <div class="row" style="margin-top:4px">
+    <div class="ctrl"><label>Face color</label><input type="color" id="face-color" value="#4070ee"></div>
+    <div class="ctrl"><label>Canvas bg</label><input type="color" id="bg-color" value="#1a2a4a"></div>
+  </div>
+  <div class="ctrl">
+    <label>Face opacity: <b id="face-op-val">0.13</b></label>
+    <input type="range" id="face-opacity" min="0" max="0.8" step="0.01" value="0.13">
+  </div>
+  <div class="row" style="margin-top:6px">
+    <button onclick="resetView()" class="full" style="flex:1">Reset View</button>
+    <button onclick="exportSVG()" class="full accent" style="flex:1">Export SVG</button>
+  </div>
+  <div class="row">
+    <button onclick="exportPNG()" class="full" style="flex:1">Export PNG</button>
+    <button id="copy-svg-btn" onclick="copySVGCode()" class="full" style="flex:1">Copy SVG</button>
+  </div>
+
+  <h3>Named Midpoints</h3>
+  <p class="hint">Mark the midpoint of an edge with a name (e.g. M on AB).</p>
+  <div class="ctrl"><label>Edge (e.g. AB)</label><input type="text" id="mp-edge" placeholder="AB" maxlength="8"></div>
+  <div class="ctrl"><label>Point name</label><input type="text" id="mp-name" placeholder="M" maxlength="12"></div>
+  <button onclick="addMidpoint()" class="full">Add Midpoint</button>
+  <div id="midpoint-list"></div>
+
+  <h3>Point on Edge by Distance</h3>
+  <p class="hint">Add a point at a specific distance from vertex A along edge AB.</p>
+  <div class="ctrl"><label>Edge (e.g. AB)</label><input type="text" id="pe-edge" placeholder="AB" maxlength="8"></div>
+  <div class="row">
+    <div class="ctrl"><label>Dist. from A</label><input type="number" id="pe-dist" placeholder="3" min="0" step="any"></div>
+    <div class="ctrl"><label>Total AB length</label><input type="number" id="pe-total" placeholder="5" min="0.01" step="any"></div>
+  </div>
+  <div class="ctrl"><label>Point name</label><input type="text" id="pe-name" placeholder="E" maxlength="12"></div>
+  <button onclick="addPointOnEdge()" class="full">Add Point</button>
+</div>
+
+<!-- CENTER -->
+<div class="canvas-area">
+  <svg id="svg-canvas" width="620" height="560" viewBox="-310 -280 620 560">
+    <defs id="svg-defs"></defs>
+    <g id="scene-group"></g>
+  </svg>
+  <div class="canvas-hint">Drag to rotate &nbsp;·&nbsp; Scroll to zoom &nbsp;·&nbsp; Use X/Y sliders for precise rotation</div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="panel" id="right-panel">
+  <h3><span id="lbl-form-title">Add Label</span></h3>
+  <p class="hint">Target: edge (AB), midpoint name (M), auto-midpoint (M_AB), or vertex (CT, O…).</p>
+  <div class="ctrl"><label>Target (edge / midpoint)</label><input type="text" id="lbl-target" placeholder="AB or M or M_AB"></div>
+  <div class="ctrl"><label>Label text</label><input type="text" id="lbl-text" placeholder="5 cm"></div>
+  <div class="ctrl"><label>Position along edge (0–1)</label><input type="number" id="lbl-pos" value="0.5" min="0" max="1" step="0.05"></div>
+  <div class="row">
+    <div class="ctrl"><label>Line offset (px)</label><input type="number" id="lbl-off" value="24" min="-120" max="120"></div>
+    <div class="ctrl"><label>Text offset (px)</label><input type="number" id="lbl-toff" value="30" min="-120" max="120"></div>
+  </div>
+
+  <h3>Font</h3>
+  <div class="row">
+    <div class="ctrl"><label>Size (px)</label><input type="number" id="f-size" value="18" min="6" max="72"></div>
+    <div class="ctrl"><label>Color</label><input type="color" id="f-color" value="#ffffff"></div>
+  </div>
+  <div style="display:flex;gap:12px;margin-top:4px">
+    <label class="chk"><input type="checkbox" id="f-bold"> Bold</label>
+    <label class="chk"><input type="checkbox" id="f-italic"> Italic</label>
+    <label class="chk"><input type="checkbox" id="f-bg" checked> Background</label>
+  </div>
+
+  <h3>Dimension Line</h3>
+  <div class="ctrl">
+    <label>Type</label>
+    <select id="dim-type">
+      <option value="none">None (text only)</option>
+      <option value="arrow">Arrows (↔)</option>
+      <option value="tick">Ticks (|—|)</option>
+      <option value="bracket">Brackets ([—])</option>
+    </select>
+  </div>
+  <div class="row">
+    <div class="ctrl"><label>Color</label><input type="color" id="dim-color" value="#ff6080"></div>
+    <div class="ctrl"><label>Thickness</label><input type="number" id="dim-thick" value="1.5" min="0.5" max="8" step="0.5"></div>
+  </div>
+  <div class="row">
+    <div class="ctrl">
+      <label>Line style</label>
+      <select id="dim-dash">
+        <option value="">Solid</option>
+        <option value="5,3">Dashed</option>
+        <option value="1,3">Dotted</option>
+        <option value="8,3,2,3">Dash-dot</option>
+      </select>
+    </div>
+    <div class="ctrl"><label>Ext. length</label><input type="number" id="dim-ext" value="10" min="0" max="40"></div>
+  </div>
+  <div class="ctrl"><label>Arrow / tick size</label><input type="number" id="dim-arrowsz" value="6" min="2" max="20"></div>
+
+  <button id="add-lbl-btn" onclick="addLabel()" class="full accent" style="margin-top:6px">Add Label</button>
+  <button id="cancel-edit-btn" onclick="cancelEdit()" class="full warn" style="display:none">Cancel Edit</button>
+
+  <h3>Labels</h3>
+  <div id="labels-list"></div>
+</div>
+
+</div>
+<script>
+// ─── SHAPE DEFINITIONS ────────────────────────────────────────────────────────
+const CE=[['A','B'],['B','C'],['C','D'],['D','A'],['E','F'],['F','G'],['G','H'],['H','E'],['A','E'],['B','F'],['C','G'],['D','H']];
+const CF=[['A','B','C','D'],['E','H','G','F'],['A','E','F','B'],['D','C','G','H'],['A','D','H','E'],['B','F','G','C']];
+
+
+const SHAPES={
+  cube:{
+    params:[{id:'a',label:'Side length (a)',def:1,min:.01,max:100,step:.05}],
+    buildVerts:({a})=>({A:[a,a,a],B:[-a,a,a],C:[-a,-a,a],D:[a,-a,a],E:[a,a,-a],F:[-a,a,-a],G:[-a,-a,-a],H:[a,-a,-a]}),
+    edges:CE,faces:CF
+  },
+  cuboid:{
+    params:[
+      {id:'l',label:'Length (l)',def:1.6,min:.01,max:100,step:.05},
+      {id:'b',label:'Breadth (b)',def:1,min:.01,max:100,step:.05},
+      {id:'h',label:'Height (h)',def:.7,min:.01,max:100,step:.05}
+    ],
+    buildVerts:({l,b,h})=>({A:[l,h,b],B:[-l,h,b],C:[-l,-h,b],D:[l,-h,b],E:[l,h,-b],F:[-l,h,-b],G:[-l,-h,-b],H:[l,-h,-b]}),
+    edges:CE,faces:CF
+  },
+  tetrahedron:{
+    params:[
+      {id:'bc',label:'Base side BC',def:2,min:.01,max:100,step:.05},
+      {id:'cd',label:'Base side CD',def:2,min:.01,max:100,step:.05},
+      {id:'db',label:'Base side DB',def:2,min:.01,max:100,step:.05},
+      {id:'ab',label:'Lateral AB (apex→B)',def:2,min:.01,max:100,step:.05},
+      {id:'ac',label:'Lateral AC (apex→C)',def:2,min:.01,max:100,step:.05},
+      {id:'ad',label:'Lateral AD (apex→D)',def:2,min:.01,max:100,step:.05}
+    ],
+    buildVerts:({bc,cd,db,ab,ac,ad})=>{
+      const Cx=bc,Cz=0,Dxn=bc*bc+db*db-cd*cd,Dx=Dxn/(2*Math.max(.001,bc));
+      const Dz=Math.sqrt(Math.max(0,db*db-Dx*Dx));
+      const gx=(Cx+Dx)/3,gz=Dz/3;
+      const B3=[-gx,0,-gz],C3=[Cx-gx,0,-gz],D3=[Dx-gx,0,Dz-gz];
+      const bx=B3[0],bz=B3[2],cx2=C3[0],cz2=C3[2],dx2=D3[0],dz2=D3[2];
+      const rhs_bc=(ab*ab-ac*ac-bx*bx-bz*bz+cx2*cx2+cz2*cz2)/2;
+      const rhs_bd=(ab*ab-ad*ad-bx*bx-bz*bz+dx2*dx2+dz2*dz2)/2;
+      const Ax_den=(cx2-bx)*(dz2-bz)-(cz2-bz)*(dx2-bx);
+      let Ax,Az;
+      if(Math.abs(Ax_den)>1e-6){Ax=(rhs_bc*(dz2-bz)-rhs_bd*(cz2-bz))/Ax_den;Az=(rhs_bd*(cx2-bx)-rhs_bc*(dx2-bx))/Ax_den;}
+      else{Ax=0;Az=0;}
+      const Ay=Math.sqrt(Math.max(0,ab*ab-(Ax-bx)*(Ax-bx)-(Az-bz)*(Az-bz)));
+      const cy_all=(0+Ay)/4;
+      return{A:[Ax,Ay-cy_all,Az],B:[bx,-cy_all,bz],C:[cx2,-cy_all,cz2],D:[dx2,-cy_all,dz2]};
+    },
+    edges:[['A','B'],['A','C'],['A','D'],['B','C'],['B','D'],['C','D']],
+    faces:[['A','B','C'],['A','C','D'],['A','D','B'],['B','D','C']]
+  },
+  'square-pyramid':{
+    params:[
+      {id:'a',label:'Base side (a)',def:2.2,min:.01,max:100,step:.05},
+      {id:'h',label:'Height (h)',def:2,min:.01,max:100,step:.05}
+    ],
+    buildVerts:({a,h})=>{const s=a/2;return{A:[0,h*.75,0],B:[s,-h*.25,s],C:[-s,-h*.25,s],D:[-s,-h*.25,-s],E:[s,-h*.25,-s]};},
+    edges:[['A','B'],['A','C'],['A','D'],['A','E'],['B','C'],['C','D'],['D','E'],['E','B']],
+    faces:[['A','B','C'],['A','C','D'],['A','D','E'],['A','E','B'],['B','E','D','C']]
+  },
+  'triangular-prism':{
+    params:[
+      {id:'ab',label:'Triangle side AB',def:2.2,min:.01,max:100,step:.05},
+      {id:'bc',label:'Triangle side BC',def:2.2,min:.01,max:100,step:.05},
+      {id:'ca',label:'Triangle side CA',def:2.2,min:.01,max:100,step:.05},
+      {id:'l', label:'Length (l)',def:2,min:.01,max:100,step:.05}
+    ],
+    buildVerts:({ab,bc,ca,l})=>{
+      const Bx=ab,Cx=(ab*ab+ca*ca-bc*bc)/(2*Math.max(.001,ab));
+      const Cy=Math.sqrt(Math.max(0,ca*ca-Cx*Cx));
+      const gx=(0+Bx+Cx)/3,gy=(0+0+Cy)/3;
+      const ax=-gx,ay=-gy,bx=Bx-gx,by=-gy,cx2=Cx-gx,cy2=Cy-gy,h=l/2;
+      return{A:[ax,ay,h],B:[bx,by,h],C:[cx2,cy2,h],D:[ax,ay,-h],E:[bx,by,-h],F:[cx2,cy2,-h]};
+    },
+    edges:[['A','B'],['B','C'],['C','A'],['D','E'],['E','F'],['F','D'],['A','D'],['B','E'],['C','F']],
+    faces:[['A','B','C'],['D','F','E'],['A','D','E','B'],['B','E','F','C'],['A','C','F','D']]
+  },
+  octahedron:{
+    params:[{id:'a',label:'Vertex radius (a)',def:1.5,min:.01,max:100,step:.05}],
+    buildVerts:({a})=>({A:[0,a,0],B:[0,-a,0],C:[a,0,0],D:[-a,0,0],E:[0,0,a],F:[0,0,-a]}),
+    edges:[['A','C'],['A','D'],['A','E'],['A','F'],['B','C'],['B','D'],['B','E'],['B','F'],['C','E'],['E','D'],['D','F'],['F','C']],
+    faces:[['A','C','E'],['A','E','D'],['A','D','F'],['A','F','C'],['B','E','C'],['B','D','E'],['B','F','D'],['B','C','F']]
+  },
+  'rhombus-prism':{
+    params:[
+      {id:'d1',label:'Diagonal 1 (d1)',def:2.4,min:.01,max:100,step:.05},
+      {id:'d2',label:'Diagonal 2 (d2)',def:1.6,min:.01,max:100,step:.05},
+      {id:'h',label:'Height (h)',def:1.6,min:.01,max:100,step:.05}
+    ],
+    buildVerts:({d1,d2,h})=>({
+      A:[d1/2,h/2,0],B:[0,h/2,d2/2],C:[-d1/2,h/2,0],D:[0,h/2,-d2/2],
+      E:[d1/2,-h/2,0],F:[0,-h/2,d2/2],G:[-d1/2,-h/2,0],H:[0,-h/2,-d2/2]
+    }),
+    edges:[['A','B'],['B','C'],['C','D'],['D','A'],['E','F'],['F','G'],['G','H'],['H','E'],['A','E'],['B','F'],['C','G'],['D','H']],
+    faces:[['A','B','C','D'],['E','H','G','F'],['A','B','F','E'],['B','C','G','F'],['C','D','H','G'],['D','A','E','H']]
+  },
+};
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+const S={
+  shape:'cube',verts:{},edges:[],faces:[],
+  rotM:[[1,0,0],[0,1,0],[0,0,1]],
+  zoom:150,showVerts:true,showHidden:true,showFaces:true,perspective:true,
+  vlabelSize:13,vertexColor:'#ffd700',edgeColor:'#3a70ff',edgeThick:1.6,
+  faceColor:'#4070ee',faceOpacity:.13,bgColor:'#1a2a4a',
+  midpoints:{},labels:[],nextId:1,editingId:null,dims:{},dimScale:1
+};
+
+// ─── 3D MATH ─────────────────────────────────────────────────────────────────
+const vdot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0);
+const mulMV=(M,v)=>M.map(r=>vdot(r,v));
+const mulMM=(A,B)=>A.map(r=>B[0].map((_,j)=>r.reduce((s,_,k)=>s+r[k]*B[k][j],0)));
+const cross3=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+
+function rotAxisAngle(axis,angle){
+  const len=Math.sqrt(vdot(axis,axis));
+  if(len<1e-10)return[[1,0,0],[0,1,0],[0,0,1]];
+  const[x,y,z]=axis.map(v=>v/len);
+  const c=Math.cos(angle),s=Math.sin(angle),t=1-c;
+  return[[t*x*x+c,t*x*y-s*z,t*x*z+s*y],[t*x*y+s*z,t*y*y+c,t*y*z-s*x],[t*x*z-s*y,t*y*z+s*x,t*z*z+c]];
+}
+function arcballRot(v1,v2){
+  const axis=cross3(v1,v2),sinA=Math.sqrt(vdot(axis,axis));
+  const cosA=Math.min(1,Math.max(-1,vdot(v1,v2))),angle=Math.atan2(sinA,cosA);
+  if(angle<1e-8)return[[1,0,0],[0,1,0],[0,0,1]];
+  return rotAxisAngle(axis,angle);
+}
+function getSpherePoint(clientX,clientY){
+  const rect=canvas.getBoundingClientRect();
+  const cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
+  const r=Math.min(rect.width,rect.height)*0.48;
+  const x=(clientX-cx)/r,y=-(clientY-cy)/r,r2=x*x+y*y;
+  if(r2<=1)return[x,y,Math.sqrt(1-r2)];
+  const s=1/Math.sqrt(r2);return[x*s,y*s,0];
+}
+function project(v3){
+  const r=mulMV(S.rotM,v3),z=r[2];
+  const d=5,sc=S.perspective?S.zoom*d/(d+z):S.zoom;
+  return{x:r[0]*sc,y:-r[1]*sc,z};
+}
+function projectAll(){
+  const p={};
+  for(const[n,v]of Object.entries(S.verts))p[n]=project(v);
+  for(const[n,mp]of Object.entries(S.midpoints)){
+    if(mp.edge&&mp.edge.length>=2){
+      const a=mp.edge[0],b=mp.edge[1];
+      if(S.verts[a]&&S.verts[b]){
+        const v1=S.verts[a],v2=S.verts[b],t=mp.t!==undefined?mp.t:0.5;
+        p[n]=project([v1[0]*(1-t)+v2[0]*t,v1[1]*(1-t)+v2[1]*t,v1[2]*(1-t)+v2[2]*t]);
+      }
+    }
+  }
+  for(const e of S.edges){
+    const v1=S.verts[e[0]],v2=S.verts[e[1]];
+    if(v1&&v2){
+      const mp=project([(v1[0]+v2[0])/2,(v1[1]+v2[1])/2,(v1[2]+v2[2])/2]);
+      p['M_'+e[0]+e[1]]=mp;p['M_'+e[1]+e[0]]=mp;
+    }
+  }
+  return p;
+}
+function faceNormal(face,p){
+  const a=p[face[0]],b=p[face[1]],c=p[face[2]];
+  return(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+}
+function hiddenEdgeSet(p){
+  if(S.faces.length===0){
+    const hidden=new Set();
+    for(const[a,b]of(SHAPES[S.shape].forcedHidden||[])){
+      hidden.add(a+'\0'+b);hidden.add(b+'\0'+a);
+    }
+    return hidden;
+  }
+  const ef={};
+  for(const face of S.faces){
+    for(let i=0;i<face.length;i++){
+      const a=face[i],b=face[(i+1)%face.length],k=a+'\0'+b,k2=b+'\0'+a;
+      (ef[k]=ef[k]||[]).push(face);(ef[k2]=ef[k2]||[]).push(face);
+    }
+  }
+  const hidden=new Set();
+  for(const[a,b]of S.edges){
+    const key=a+'\0'+b,faces=ef[key]||ef[b+'\0'+a]||[];
+    if(!faces.some(f=>faceNormal(f,p)>0)){hidden.add(a+'\0'+b);hidden.add(b+'\0'+a);}
+  }
+  return hidden;
+}
+
+// ─── DEPTH-SORTED RENDER ─────────────────────────────────────────────────────
+function render(){
+  const p=projectAll(),hidden=hiddenEdgeSet(p);
+  const g=document.getElementById('scene-group');
+  const defs=document.getElementById('svg-defs');
+  g.innerHTML='';defs.innerHTML='';
+
+  const items=[];
+
+  // ── Faces ──────────────────────────────────────────────────
+  if(S.showFaces){
+    for(const face of S.faces){
+      if(!face.every(v=>p[v]))continue;
+      const z=face.reduce((s,v)=>s+p[v].z,0)/face.length;
+      const _f=face,_z=z;
+      items.push({z:_z, fn:()=>{
+        const front=faceNormal(_f,p)>0;
+        const pts=_f.map(v=>`${p[v].x.toFixed(1)},${p[v].y.toFixed(1)}`).join(' ');
+        g.appendChild(svg_el('polygon',{points:pts,
+          fill:front?rgba(S.faceColor,S.faceOpacity):rgba(S.faceColor,S.faceOpacity*.35),
+          stroke:'none'}));
+      }});
+    }
+  }
+
+  // ── Edges ──
+  for(const[a,b]of S.edges){
+    if(!p[a]||!p[b])continue;
+    const isHid=hidden.has(a+'\0'+b);
+    if(isHid&&!S.showHidden)continue;
+    const z=(p[a].z+p[b].z)/2-0.001;
+    const _a=a,_b=b,_h=isHid;
+    items.push({z, fn:()=>{
+      const ec=S.edgeColor,th=S.edgeThick;
+      const attr={x1:p[_a].x.toFixed(1),y1:p[_a].y.toFixed(1),
+                  x2:p[_b].x.toFixed(1),y2:p[_b].y.toFixed(1),
+                  stroke:_h?rgba(ec,.4):ec,'stroke-width':_h?Math.max(.4,th*.5):th};
+      if(_h)attr['stroke-dasharray']='5,4';
+      g.appendChild(svg_el('line',attr));
+    }});
+  }
+
+  // ── Vertex + midpoint dots ──
+  if(S.showVerts){
+    const def=SHAPES[S.shape];
+    const vertsToLabel=def.namedVerts||Object.keys(S.verts);
+    for(const n of vertsToLabel){
+      const pt=p[n];if(!pt)continue;
+      const _n=n,_pt=pt;
+      items.push({z:pt.z-0.002, fn:()=>{
+        const dotR=Math.max(2,S.edgeThick*.7+1.5);
+        g.appendChild(svg_el('circle',{cx:_pt.x.toFixed(1),cy:_pt.y.toFixed(1),r:dotR.toFixed(1),fill:S.vertexColor}));
+        const t=svg_el('text',{x:(_pt.x+dotR+4).toFixed(1),y:(_pt.y-5).toFixed(1),
+          fill:S.vertexColor,'font-size':S.vlabelSize,'font-family':'monospace','font-weight':'bold'});
+        t.textContent=_n;g.appendChild(t);
+      }});
+    }
+    for(const[n,mp]of Object.entries(S.midpoints)){
+      const pt=p[n];if(!pt)continue;
+      const _n=n,_pt=pt;
+      items.push({z:pt.z-0.002, fn:()=>{
+        const dotR=Math.max(1.8,S.edgeThick*.6+1.2);
+        g.appendChild(svg_el('circle',{cx:_pt.x.toFixed(1),cy:_pt.y.toFixed(1),r:dotR.toFixed(1),fill:S.vertexColor}));
+        const t=svg_el('text',{x:(_pt.x+dotR+3).toFixed(1),y:(_pt.y-4).toFixed(1),
+          fill:S.vertexColor,'font-size':S.vlabelSize,'font-family':'monospace','font-weight':'bold'});
+        t.textContent=_n;g.appendChild(t);
+      }});
+    }
+  }
+
+  // ── Dimension labels ──
+  for(const lbl of S.labels){
+    const target=lbl.target.toUpperCase();
+    let p1=null,p2=null,avgZ=0;
+    if(target.length>=2&&p[target[0]]&&p[target[1]]){
+      p1=p[target[0]];p2=p[target[1]];avgZ=(p1.z+p2.z)/2;
+    } else {
+      const pt=p[target]||p[lbl.target];if(pt)avgZ=pt.z;
+    }
+    const _lbl=lbl,_p1=p1,_p2=p2,_target=target;
+    items.push({z:avgZ-0.001, fn:()=>{
+      if(_p1&&_p2)drawEdgeLabel(g,defs,_p1,_p2,_lbl);
+      else{const pt=p[_target]||p[_lbl.target];if(pt)drawPointLabel(g,pt,_lbl);}
+    }});
+  }
+
+  items.sort((a,b)=>b.z-a.z);
+  for(const item of items)item.fn();
+}
+
+// ─── LABEL DRAWING ────────────────────────────────────────────────────────────
+function drawEdgeLabel(g,defs,p1,p2,lbl){
+  const t=lbl.pos,lineOff=lbl.off,textOff=lbl.textOff!=null?lbl.textOff:lbl.off;
+  const mx=p1.x+(p2.x-p1.x)*t,my=p1.y+(p2.y-p1.y)*t;
+  const dx=p2.x-p1.x,dy=p2.y-p1.y,len=Math.sqrt(dx*dx+dy*dy)||1;
+  const nx=-dy/len,ny=dx/len;
+  if(lbl.dimType!=='none')drawDimLine(g,defs,p1,p2,lbl,lineOff,nx,ny);
+  placeText(g,mx+nx*textOff,my+ny*textOff,lbl);
+}
+function drawDimLine(g,defs,p1,p2,lbl,off,nx,ny){
+  const c=lbl.dimColor,th=lbl.dimThick,ext=lbl.dimExt,asz=lbl.arrowSz;
+  const d1={x:p1.x+nx*off,y:p1.y+ny*off},d2={x:p2.x+nx*off,y:p2.y+ny*off};
+  const sa={stroke:c,'stroke-width':th,fill:'none'};
+  if(lbl.dimDash)sa['stroke-dasharray']=lbl.dimDash;
+  if(lbl.dimType==='arrow'){
+    const ms='ams'+lbl.id,me='ame'+lbl.id;
+    defs.appendChild(makeArrow(ms,c,asz,'auto-start-reverse'));
+    defs.appendChild(makeArrow(me,c,asz,'auto'));
+    const extN=off>0?1:-1;
+    g.appendChild(svg_el('line',{x1:p1.x,y1:p1.y,x2:p1.x+nx*(off+extN*ext*.5),y2:p1.y+ny*(off+extN*ext*.5),stroke:c,'stroke-width':Math.max(.5,th*.7)}));
+    g.appendChild(svg_el('line',{x1:p2.x,y1:p2.y,x2:p2.x+nx*(off+extN*ext*.5),y2:p2.y+ny*(off+extN*ext*.5),stroke:c,'stroke-width':Math.max(.5,th*.7)}));
+    g.appendChild(svg_el('line',{x1:d1.x,y1:d1.y,x2:d2.x,y2:d2.y,...sa,'marker-start':`url(#${ms})`,'marker-end':`url(#${me})`}));
+  } else if(lbl.dimType==='tick'){
+    g.appendChild(svg_el('line',{x1:d1.x,y1:d1.y,x2:d2.x,y2:d2.y,...sa}));
+    const tl=asz;
+    for(const pt of[d1,d2])g.appendChild(svg_el('line',{x1:pt.x-nx*tl/2,y1:pt.y-ny*tl/2,x2:pt.x+nx*tl/2,y2:pt.y+ny*tl/2,stroke:c,'stroke-width':th}));
+  } else if(lbl.dimType==='bracket'){
+    g.appendChild(svg_el('line',{x1:d1.x,y1:d1.y,x2:d2.x,y2:d2.y,...sa}));
+    const bLen=asz*.8,inward=off>0?-1:1;
+    const edx=p2.x-p1.x,edy=p2.y-p1.y,el=Math.sqrt(edx*edx+edy*edy)||1;
+    const ux=edx/el,uy=edy/el;
+    for(const pt of[d1,d2]){
+      g.appendChild(svg_el('line',{x1:pt.x-ux*bLen/2,y1:pt.y-uy*bLen/2,x2:pt.x+ux*bLen/2,y2:pt.y+uy*bLen/2,stroke:c,'stroke-width':th}));
+      g.appendChild(svg_el('line',{x1:pt.x,y1:pt.y,x2:pt.x+nx*inward*ext*.6,y2:pt.y+ny*inward*ext*.6,stroke:c,'stroke-width':th}));
+    }
+  }
+}
+function makeArrow(id,color,size,orient){
+  const m=document.createElementNS('http://www.w3.org/2000/svg','marker');
+  m.setAttribute('id',id);m.setAttribute('viewBox','0 0 10 10');
+  m.setAttribute('refX','5');m.setAttribute('refY','5');
+  m.setAttribute('markerWidth',size);m.setAttribute('markerHeight',size);
+  m.setAttribute('orient',orient);
+  const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d','M 0 0 L 10 5 L 0 10 z');path.setAttribute('fill',color);
+  m.appendChild(path);return m;
+}
+function drawPointLabel(g,pt,lbl){
+  const toff=lbl.textOff!=null?lbl.textOff:lbl.off;
+  placeText(g,pt.x+toff*.6,pt.y-toff*.6,lbl);
+}
+function placeText(g,tx,ty,lbl){
+  const txt=lbl.text,fs=lbl.fontSize,approxW=txt.length*fs*.58;
+  if(lbl.bg)g.appendChild(svg_el('rect',{x:tx-approxW/2-3,y:ty-fs*.6-3,width:approxW+6,height:fs+6,fill:'rgba(13,27,46,.82)',rx:'2'}));
+  const attrs={x:tx,y:ty,fill:lbl.fontColor,'font-size':fs,'font-family':'sans-serif','text-anchor':'middle','dominant-baseline':'middle'};
+  if(lbl.fontBold)attrs['font-weight']='bold';
+  if(lbl.fontItalic)attrs['font-style']='italic';
+  const t=svg_el('text',attrs);t.textContent=txt;g.appendChild(t);
+}
+function svg_el(tag,attrs){
+  const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
+  for(const[k,v]of Object.entries(attrs))if(v!==''&&v!=null)el.setAttribute(k,v);
+  return el;
+}
+function rgba(hex,alpha){
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return`rgba(${r},${g},${b},${alpha})`;
+}
+
+// ─── ARCBALL INTERACTION ─────────────────────────────────────────────────────
+let drag=false,lastSP=null,pinchDist=null;
+const canvas=document.getElementById('svg-canvas');
+
+canvas.addEventListener('mousedown',e=>{drag=true;lastSP=getSpherePoint(e.clientX,e.clientY);e.preventDefault();});
+window.addEventListener('mousemove',e=>{
+  if(!drag||!lastSP)return;
+  const sp=getSpherePoint(e.clientX,e.clientY);
+  S.rotM=mulMM(arcballRot(lastSP,sp),S.rotM);lastSP=sp;render();
+});
+window.addEventListener('mouseup',()=>{drag=false;lastSP=null;});
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  S.zoom=Math.max(40,Math.min(400,S.zoom-e.deltaY*.35));
+  document.getElementById('zoom').value=S.zoom;
+  document.getElementById('zoom-val').textContent=Math.round(S.zoom);
+  render();
+},{passive:false});
+canvas.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){drag=true;lastSP=getSpherePoint(e.touches[0].clientX,e.touches[0].clientY);}
+  if(e.touches.length===2)pinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+},{passive:false});
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(e.touches.length===1&&drag&&lastSP){
+    const sp=getSpherePoint(e.touches[0].clientX,e.touches[0].clientY);
+    S.rotM=mulMM(arcballRot(lastSP,sp),S.rotM);lastSP=sp;render();
+  }
+  if(e.touches.length===2&&pinchDist!==null){
+    const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    S.zoom=Math.max(40,Math.min(400,S.zoom*(d/pinchDist)));pinchDist=d;render();
+  }
+},{passive:false});
+canvas.addEventListener('touchend',()=>{drag=false;lastSP=null;pinchDist=null;});
+
+// ─── ROTATION SLIDERS ────────────────────────────────────────────────────────
+function applySliderRotation(){
+  const rx=parseFloat(document.getElementById('rot-x').value)*Math.PI/180;
+  const ry=parseFloat(document.getElementById('rot-y').value)*Math.PI/180;
+  document.getElementById('rotx-val').textContent=Math.round(rx*180/Math.PI)+'°';
+  document.getElementById('roty-val').textContent=Math.round(ry*180/Math.PI)+'°';
+  S.rotM=mulMM(rotAxisAngle([1,0,0],rx),rotAxisAngle([0,1,0],ry));
+  render();
+}
+document.getElementById('rot-x').oninput=applySliderRotation;
+document.getElementById('rot-y').oninput=applySliderRotation;
+
+// ─── SHAPE + DIMENSIONS ──────────────────────────────────────────────────────
+function buildAndRender(){
+  const def=SHAPES[S.shape];
+  const rawVerts=def.buildVerts(S.dims);
+  let maxExt=0;
+  for(const v of Object.values(rawVerts)){
+    const len=Math.sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
+    maxExt=Math.max(maxExt,len);
+  }
+  S.dimScale=maxExt>1e-6?1/maxExt:1;
+  S.verts={};
+  for(const[k,v]of Object.entries(rawVerts))S.verts[k]=[v[0]*S.dimScale,v[1]*S.dimScale,v[2]*S.dimScale];
+  render();
+}
+
+function updateDimControls(){
+  const shape=SHAPES[S.shape],container=document.getElementById('dim-controls');
+  container.innerHTML='';
+  for(const p of shape.params){
+    const div=document.createElement('div');div.className='ctrl';
+    div.innerHTML=`<label>${p.label}: <b id="dv-${p.id}">${S.dims[p.id].toFixed(2)}</b></label>
+      <div style="display:flex;gap:4px;align-items:center">
+        <input type="range" id="dr-${p.id}" min="${p.min}" max="${Math.max(p.max,S.dims[p.id]*1.5)}" step="${p.step}" value="${S.dims[p.id]}" style="flex:1">
+        <input type="number" id="dn-${p.id}" min="${p.min}" step="${p.step}" value="${S.dims[p.id]}" style="width:72px">
+      </div>`;
+    container.appendChild(div);
+    const rng=document.getElementById('dr-'+p.id),num=document.getElementById('dn-'+p.id),val=document.getElementById('dv-'+p.id);
+    const upd=v=>{
+      const n=parseFloat(v);if(isNaN(n)||n<p.min)return;
+      S.dims[p.id]=n;
+      rng.max=Math.max(parseFloat(rng.max),n*1.2);
+      rng.value=n;num.value=n;val.textContent=n.toFixed(2);buildAndRender();
+    };
+    rng.addEventListener('input',e=>upd(e.target.value));
+    num.addEventListener('change',e=>upd(e.target.value));
+    num.addEventListener('input',e=>upd(e.target.value));
+  }
+}
+
+function loadShape(name){
+  const def=SHAPES[name];if(!def)return;
+  S.shape=name;
+  S.edges=def.edges.map(e=>[...e]);S.faces=def.faces.map(f=>[...f]);
+  S.dims={};for(const p of def.params)S.dims[p.id]=p.def;
+  S.showVerts=true;document.getElementById('show-vertices').checked=true;
+  updateDimControls();
+  S.midpoints={};S.labels=[];S.editingId=null;
+  _resetEditUI();updateMidpointList();updateLabelsList();
+  if(def.onLoad)def.onLoad();
+  buildAndRender();
+}
+
+// ─── MIDPOINTS ────────────────────────────────────────────────────────────────
+function addMidpoint(){
+  const edge=document.getElementById('mp-edge').value.trim().toUpperCase();
+  const name=document.getElementById('mp-name').value.trim();
+  if(!name){alert('Enter a midpoint name.');return;}
+  if(edge.length<2){alert('Enter an edge (e.g. AB).');return;}
+  if(!S.verts[edge[0]]||!S.verts[edge[1]]){alert(`Vertex ${edge[0]} or ${edge[1]} not in current shape.`);return;}
+  S.midpoints[name]={edge,t:0.5};
+  document.getElementById('mp-edge').value='';document.getElementById('mp-name').value='';
+  updateMidpointList();render();
+}
+function addPointOnEdge(){
+  const edge=document.getElementById('pe-edge').value.trim().toUpperCase();
+  const dist=parseFloat(document.getElementById('pe-dist').value);
+  const total=parseFloat(document.getElementById('pe-total').value);
+  const name=document.getElementById('pe-name').value.trim();
+  if(!name){alert('Enter a point name.');return;}
+  if(edge.length<2){alert('Enter an edge (e.g. AB).');return;}
+  if(!S.verts[edge[0]]||!S.verts[edge[1]]){alert(`Vertex ${edge[0]} or ${edge[1]} not in current shape.`);return;}
+  if(isNaN(dist)||isNaN(total)||total<=0){alert('Enter valid distances.');return;}
+  S.midpoints[name]={edge,t:Math.max(0,Math.min(1,dist/total))};
+  document.getElementById('pe-name').value='';
+  updateMidpointList();render();
+}
+function removeMidpoint(name){delete S.midpoints[name];updateMidpointList();render();}
+function updateMidpointList(){
+  const el=document.getElementById('midpoint-list');el.innerHTML='';
+  for(const[n,mp]of Object.entries(S.midpoints)){
+    const t=mp.t!==undefined?mp.t:0.5;
+    const desc=t===0.5?`midpoint of ${mp.edge}`:`${(t*100).toFixed(0)}% along ${mp.edge}`;
+    const d=document.createElement('div');d.className='tag';
+    d.innerHTML=`<div class="th"><span class="tn">${n}</span><span class="tv">${desc}</span>
+      <button class="red" onclick="removeMidpoint('${n}')" style="padding:2px 5px">✕</button></div>`;
+    el.appendChild(d);
+  }
+}
+
+// ─── LABELS ───────────────────────────────────────────────────────────────────
+function readForm(){
+  return{
+    target:document.getElementById('lbl-target').value.trim(),
+    text:document.getElementById('lbl-text').value.trim(),
+    pos:parseFloat(document.getElementById('lbl-pos').value)||.5,
+    off:parseInt(document.getElementById('lbl-off').value)||24,
+    textOff:parseInt(document.getElementById('lbl-toff').value)||30,
+    fontSize:parseInt(document.getElementById('f-size').value)||18,
+    fontColor:document.getElementById('f-color').value,
+    fontBold:document.getElementById('f-bold').checked,
+    fontItalic:document.getElementById('f-italic').checked,
+    bg:document.getElementById('f-bg').checked,
+    dimType:document.getElementById('dim-type').value,
+    dimColor:document.getElementById('dim-color').value,
+    dimThick:parseFloat(document.getElementById('dim-thick').value)||1.5,
+    dimDash:document.getElementById('dim-dash').value,
+    dimExt:parseInt(document.getElementById('dim-ext').value)||10,
+    arrowSz:parseInt(document.getElementById('dim-arrowsz').value)||6
+  };
+}
+function addLabel(){
+  const data=readForm();
+  if(!data.target){alert('Enter a target (e.g. AB or M).');return;}
+  if(!data.text){alert('Enter label text.');return;}
+  if(S.editingId!==null){
+    const idx=S.labels.findIndex(l=>l.id===S.editingId);
+    if(idx>=0)S.labels[idx]={...S.labels[idx],...data};
+    _resetEditUI();
+  }else{data.id=S.nextId++;S.labels.push(data);}
+  updateLabelsList();render();
+}
+function editLabel(id){
+  const lbl=S.labels.find(l=>l.id===id);if(!lbl)return;
+  S.editingId=id;
+  const f=(i,v)=>document.getElementById(i).value=v;
+  const fc=(i,v)=>document.getElementById(i).checked=v;
+  f('lbl-target',lbl.target);f('lbl-text',lbl.text);f('lbl-pos',lbl.pos);f('lbl-off',lbl.off);
+  f('lbl-toff',lbl.textOff!=null?lbl.textOff:lbl.off);
+  f('f-size',lbl.fontSize);f('f-color',lbl.fontColor);
+  fc('f-bold',lbl.fontBold);fc('f-italic',lbl.fontItalic);fc('f-bg',lbl.bg);
+  f('dim-type',lbl.dimType);f('dim-color',lbl.dimColor);f('dim-thick',lbl.dimThick);
+  f('dim-dash',lbl.dimDash);f('dim-ext',lbl.dimExt);f('dim-arrowsz',lbl.arrowSz);
+  document.getElementById('add-lbl-btn').textContent='Update Label';
+  document.getElementById('lbl-form-title').textContent='Edit Label';
+  document.getElementById('cancel-edit-btn').style.display='block';
+  document.getElementById('right-panel').scrollTop=0;
+  updateLabelsList();
+}
+function cancelEdit(){_resetEditUI();updateLabelsList();}
+function _resetEditUI(){
+  S.editingId=null;
+  document.getElementById('add-lbl-btn').textContent='Add Label';
+  document.getElementById('lbl-form-title').textContent='Add Label';
+  document.getElementById('cancel-edit-btn').style.display='none';
+}
+function removeLabel(id){
+  if(S.editingId===id)_resetEditUI();
+  S.labels=S.labels.filter(l=>l.id!==id);updateLabelsList();render();
+}
+function updateLabelsList(){
+  const el=document.getElementById('labels-list');el.innerHTML='';
+  for(const lbl of S.labels){
+    const d=document.createElement('div');
+    d.className='tag'+(lbl.id===S.editingId?' editing':'');
+    d.innerHTML=`<div class="th">
+      <span class="tn">${lbl.target}</span><span class="tv">"${lbl.text}"</span>
+      <button onclick="editLabel(${lbl.id})" style="padding:2px 6px;font-size:10px">Edit</button>
+      <button class="red" onclick="removeLabel(${lbl.id})" style="padding:2px 5px">✕</button>
+    </div>
+    <div class="td">${lbl.dimType} · ${lbl.fontSize}px · line±${lbl.off} text±${lbl.textOff!=null?lbl.textOff:lbl.off}</div>`;
+    el.appendChild(d);
+  }
+}
+
+// ─── UI BINDINGS ──────────────────────────────────────────────────────────────
+document.getElementById('shape-select').onchange=e=>loadShape(e.target.value);
+document.getElementById('show-vertices').onchange=e=>{S.showVerts=e.target.checked;render()};
+document.getElementById('show-hidden').onchange=e=>{S.showHidden=e.target.checked;render()};
+document.getElementById('show-faces').onchange=e=>{S.showFaces=e.target.checked;render()};
+document.getElementById('perspective-proj').onchange=e=>{S.perspective=e.target.checked;render()};
+document.getElementById('zoom').oninput=e=>{S.zoom=parseInt(e.target.value);document.getElementById('zoom-val').textContent=S.zoom;render()};
+document.getElementById('edge-thick').oninput=e=>{S.edgeThick=parseFloat(e.target.value);document.getElementById('edge-thick-val').textContent=S.edgeThick.toFixed(1);render()};
+document.getElementById('vlabel-size').oninput=e=>{S.vlabelSize=parseInt(e.target.value);document.getElementById('vlabel-size-val').textContent=S.vlabelSize;render()};
+document.getElementById('vertex-color').oninput=e=>{S.vertexColor=e.target.value;render()};
+document.getElementById('edge-color').oninput=e=>{S.edgeColor=e.target.value;render()};
+document.getElementById('face-color').oninput=e=>{S.faceColor=e.target.value;render()};
+document.getElementById('face-opacity').oninput=e=>{S.faceOpacity=parseFloat(e.target.value);document.getElementById('face-op-val').textContent=S.faceOpacity.toFixed(2);render()};
+document.getElementById('bg-color').oninput=e=>{S.bgColor=e.target.value;document.getElementById('svg-canvas').style.background=S.bgColor;};
+
+function resetView(){
+  const rx=-23,ry=32;
+  document.getElementById('rot-x').value=rx;document.getElementById('rot-y').value=ry;
+  document.getElementById('rotx-val').textContent=rx+'°';document.getElementById('roty-val').textContent=ry+'°';
+  S.rotM=mulMM(rotAxisAngle([1,0,0],rx*Math.PI/180),rotAxisAngle([0,1,0],ry*Math.PI/180));
+  render();
+}
+
+// ─── EXPORT ───────────────────────────────────────────────────────────────────
+function getTightSVGClone(pad=18){
+  const svgEl=document.getElementById('svg-canvas');
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  const sg=document.getElementById('scene-group');
+  if(sg&&sg.children.length){
+    try{const bb=sg.getBBox();if(bb.width>0||bb.height>0){minX=bb.x;minY=bb.y;maxX=bb.x+bb.width;maxY=bb.y+bb.height;}}catch(e){}
+  }
+  const clone=svgEl.cloneNode(true);
+  if(isFinite(minX)){
+    const vx=minX-pad,vy=minY-pad,vw=maxX-minX+pad*2,vh=maxY-minY+pad*2;
+    clone.setAttribute('viewBox',`${vx} ${vy} ${vw} ${vh}`);
+    clone.setAttribute('width',vw);clone.setAttribute('height',vh);
+  }
+  return clone;
+}
+function exportSVG(){
+  const clone=getTightSVGClone();
+  const str='<?xml version="1.0" encoding="UTF-8"?>\n'+new XMLSerializer().serializeToString(clone);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([str],{type:'image/svg+xml'}));
+  a.download='3d-shape.svg';a.click();
+}
+function exportPNG(){
+  const clone=getTightSVGClone();
+  const svgStr=new XMLSerializer().serializeToString(clone);
+  const w=parseFloat(clone.getAttribute('width'))||620,h=parseFloat(clone.getAttribute('height'))||560;
+  const img=new Image();
+  img.onload=()=>{
+    const c=document.createElement('canvas');c.width=w*2;c.height=h*2;
+    const ctx=c.getContext('2d');ctx.scale(2,2);ctx.drawImage(img,0,0);
+    const a=document.createElement('a');a.href=c.toDataURL('image/png');a.download='3d-shape.png';a.click();
+  };
+  img.src='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(svgStr)));
+}
+function copySVGCode(){
+  const clone=getTightSVGClone(),str=new XMLSerializer().serializeToString(clone);
+  const btn=document.getElementById('copy-svg-btn'),reset=()=>{btn.textContent='Copy SVG';};
+  if(navigator.clipboard){navigator.clipboard.writeText(str).then(()=>{btn.textContent='Copied!';setTimeout(reset,1800);}).catch(()=>fallbackCopy(str,btn,reset));}
+  else{fallbackCopy(str,btn,reset);}
+}
+function fallbackCopy(str,btn,reset){
+  const ta=document.createElement('textarea');ta.value=str;ta.style.position='fixed';ta.style.opacity='0';
+  document.body.appendChild(ta);ta.select();
+  try{document.execCommand('copy');btn.textContent='Copied!';setTimeout(reset,1800);}catch(e){btn.textContent='Failed';setTimeout(reset,1800);}
+  document.body.removeChild(ta);
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+resetView();
+loadShape('cube');
+</script>
+</body>
+</html>

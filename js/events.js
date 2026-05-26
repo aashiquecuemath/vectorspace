@@ -643,7 +643,7 @@ function wireAll() {
 
   $('btn-3d-single')?.addEventListener('click', () => {
     _close3dModal();
-    window.open('../3dimagemarker/3d-shape-maker-v2.html', '_blank');
+    window.open('3d-single-image.html', '_blank');
   });
   $('btn-3d-stack')?.addEventListener('click', () => {
     _close3dModal();
