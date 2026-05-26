@@ -685,6 +685,9 @@ function wireAll() {
 
   /* ── Patterns: build initial element / term cards ── */
   if (typeof _ptInitElements === 'function') _ptInitElements();
+
+  /* ── Volume Measures ── */
+  wireVolumeMeasures();
 }
 
 /* ── Vertex handle dragging (geometry tool only) ── */

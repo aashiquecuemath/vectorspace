@@ -1959,3 +1959,28 @@ input[type=hidden].pt-hidden-val { display:none !important; }
   resize: vertical;
   background: #fff;
 }
+
+/* ── Volume Measures section color themes ── */
+.sub-group--vm-scale  { border: 2px solid #1a5c8e; }
+.sub-group--vm-scale  > .sub-group-title { color: #1a5c8e; background: #d6eaf8; }
+.sub-group--vm-size   { border: 2px solid #5b21b6; }
+.sub-group--vm-size   > .sub-group-title { color: #5b21b6; background: #ede0fc; }
+.sub-group--vm-glass  { border: 2px solid #0f766e; }
+.sub-group--vm-glass  > .sub-group-title { color: #0f766e; background: #ccf0ec; }
+.sub-group--vm-grad   { border: 2px solid #b45309; }
+.sub-group--vm-grad   > .sub-group-title { color: #b45309; background: #fde8c8; }
+.sub-group--vm-labels { border: 2px solid #9f1239; }
+.sub-group--vm-labels > .sub-group-title { color: #9f1239; background: #fdd5df; }
+.sub-group--vm-liquid { border: 2px solid #1e40af; }
+.sub-group--vm-liquid > .sub-group-title { color: #1e40af; background: #dbeafe; }
+
+/* ── Volume Measures beaker tabs ── */
+.vm-bk-bar  { display: flex; align-items: center; gap: 5px; margin-bottom: 8px; flex-wrap: wrap; }
+.vm-bk-tabs { display: flex; flex-wrap: wrap; gap: 3px; flex: 1; min-width: 0; }
+.vm-bk-tab  { padding: 3px 9px; border: 1.5px solid var(--border); border-radius: 5px; background: #fff; color: var(--muted); font-size: 11px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all .15s; font-family: inherit; }
+.vm-bk-tab.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+.vm-bk-tab:not(.active):hover { border-color: var(--accent); color: var(--accent); }
+.vm-bk-del  { font-size: 13px; line-height: 1; opacity: .6; cursor: pointer; }
+.vm-bk-del:hover { opacity: 1; }
+.vm-bk-add  { padding: 3px 10px; border: 1.5px dashed var(--accent2); border-radius: 5px; background: transparent; color: var(--accent2); font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all .15s; font-family: inherit; }
+.vm-bk-add:hover { background: rgba(0,128,199,.08); }

@@ -5,5 +5,6 @@ buildNumberLineUI();
 buildGeometry3DUI();
 buildBalanceUI();
 buildPanBalanceUI();
+buildVolumeMeasuresUI();
 wireAll();
 render();

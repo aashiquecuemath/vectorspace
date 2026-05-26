@@ -1298,6 +1298,7 @@ function generateShape() {
     geometry3d:      generateGeometry3D,
     analogBalance:   generateBalance,
     panBalance:      renderPanBalance,
+    volumeMeasures:  generateVolumeMeasures,
   };
   return (map[currentShape] || (() => ''))();
 }
