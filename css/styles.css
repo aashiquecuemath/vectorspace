@@ -159,6 +159,8 @@ header span { font-size: .78rem; opacity: .7; }
 .home-tile[data-tool="cube3d"]::before { background: var(--accent5); }
 .home-tile[data-tool="patterns"]:hover  { transform: translateY(-7px); box-shadow: 0 18px 44px rgba(5,150,105,.18); border-color: var(--accent6); }
 .home-tile[data-tool="patterns"]::before{ background: var(--accent6); }
+.home-tile[data-tool="svgtable"]:hover  { transform: translateY(-7px); box-shadow: 0 18px 44px rgba(14,165,233,.18); border-color: #0ea5e9; }
+.home-tile[data-tool="svgtable"]::before{ background: #0ea5e9; }
 
 /* Per-tool icon circle backgrounds */
 .home-tile-icon {
@@ -179,6 +181,7 @@ header span { font-size: .78rem; opacity: .7; }
 .home-tile[data-tool="editor"]   .home-tile-icon { background: radial-gradient(circle at 35% 35%, rgba(124,58,237,.14), rgba(124,58,237,.05)); }
 .home-tile[data-tool="cube3d"]   .home-tile-icon { background: radial-gradient(circle at 35% 35%, rgba(220,88,10,.14),  rgba(220,88,10,.05)); }
 .home-tile[data-tool="patterns"] .home-tile-icon { background: radial-gradient(circle at 35% 35%, rgba(5,150,105,.14),  rgba(5,150,105,.05)); }
+.home-tile[data-tool="svgtable"] .home-tile-icon { background: radial-gradient(circle at 35% 35%, rgba(14,165,233,.14), rgba(14,165,233,.05)); }
 
 .home-tile h3 {
   font-size: .97rem;
