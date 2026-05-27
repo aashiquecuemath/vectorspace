@@ -1422,6 +1422,28 @@ kbd {
 .controls--svgtable > .card.st-col1 { grid-column: 1; }
 .controls--svgtable > .card.st-col2 { grid-column: 2; }
 
+/* ── SVG Tables section colors ── */
+.sub-group--st-title  { border: 1px solid #7c3aed; }
+.sub-group--st-title  > .sub-group-title { color: #7c3aed; background: #ede9fe; }
+.sub-group--st-hdr    { border: 1px solid #0369a1; }
+.sub-group--st-hdr    > .sub-group-title { color: #0369a1; background: #e0f2fe; }
+.sub-group--st-body   { border: 1px solid #059669; }
+.sub-group--st-body   > .sub-group-title { color: #059669; background: #d1fae5; }
+.sub-group--st-border { border: 1px solid #d97706; }
+.sub-group--st-border > .sub-group-title { color: #d97706; background: #fef3c7; }
+.sub-group--st-col    { border: 1px solid #db2777; }
+.sub-group--st-col    > .sub-group-title { color: #db2777; background: #fce7f3; }
+
+.st-border-label {
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #6b7280;
+  margin-top: 4px;
+  margin-bottom: 3px;
+}
+
 .st-mode-group {
   display: flex;
   border: 1px solid #d0d5dd;

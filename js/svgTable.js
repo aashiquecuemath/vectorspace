@@ -2,18 +2,17 @@
 
 /* ═══════════════════════════════════════════════════
    SVG TABLE GENERATOR
-   – LaTeX via KaTeX + foreignObject
-   – Multi-line cells (variable row height)
-   – Vertical alignment (top / middle / bottom)
+   – Pure SVG text (no foreignObject)
+   – Multi-line cells, variable row height
+   – Flexible header mode: first-row / first-col / both / first-cell / none
    – Per-column & per-cell style/content overrides
+   – Separate outer / h-line / v-line border controls with dash support
    – Click-to-edit cells
 ═══════════════════════════════════════════════════ */
 
-/* ── Override state (persists across renders) ────── */
-
-let _stColOverrides  = [];   // [colIdx] → {bg,tc,fs,bold,italic,hAlign,vAlign,width}
-let _stCellOverrides = {};   // "r,c" (r=-1 = header) → {bg,tc,fs,bold,italic,hAlign,vAlign}
-let _stLastParsed    = { headers: [], rows: [], colX: [], colWidths: [], MT: 0, hdrH: 0, rowYs: [], rowHeights: [], nCols: 0 };
+let _stColOverrides  = [];
+let _stCellOverrides = {};
+let _stLastParsed    = { allRows: [], colX: [], colWidths: [], MT: 0, rowYs: [], rowHeights: [], nCols: 0 };
 
 /* ── Parsers ────────────────────────────────────── */
 
@@ -28,46 +27,23 @@ function _stParseHTML(html) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(`<html><body>${html}</body></html>`, 'text/html');
     const table = doc.querySelector('table');
-    if (!table) return { headers: [], rows: [] };
-
-    const headers = [];
-    const rows = [];
-
-    const thead = table.querySelector('thead');
-    if (thead) {
-      thead.querySelectorAll('th, td').forEach(th => headers.push(_stGetCellText(th)));
-    } else {
-      const firstTr = table.querySelector('tr');
-      if (firstTr) {
-        const ths = firstTr.querySelectorAll('th');
-        if (ths.length) ths.forEach(th => headers.push(_stGetCellText(th)));
-      }
-    }
-
-    const tbody = table.querySelector('tbody') || table;
-    tbody.querySelectorAll('tr').forEach(tr => {
-      const tds = tr.querySelectorAll('td');
-      if (tds.length) {
-        const row = [];
-        tds.forEach(td => row.push(_stGetCellText(td)));
-        rows.push(row);
-      }
+    if (!table) return [];
+    const allRows = [];
+    table.querySelectorAll('tr').forEach(tr => {
+      const cells = [];
+      tr.querySelectorAll('th, td').forEach(td => cells.push(_stGetCellText(td)));
+      if (cells.length) allRows.push(cells);
     });
-
-    return { headers, rows };
-  } catch (_) {
-    return { headers: [], rows: [] };
-  }
+    return allRows;
+  } catch (_) { return []; }
 }
 
 function _stParseCSV(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  if (!lines.length) return { headers: [], rows: [] };
-  const splitLine = l => (l.includes('\t')
-    ? l.split('\t')
-    : l.split(',')
-  ).map(c => c.trim().replace(/\\n/g, '\n'));
-  return { headers: splitLine(lines[0]), rows: lines.slice(1).map(splitLine) };
+  if (!lines.length) return [];
+  const splitLine = l => (l.includes('\t') ? l.split('\t') : l.split(','))
+    .map(c => c.trim().replace(/\\n/g, '\n'));
+  return lines.map(splitLine);
 }
 
 /* ── Mode toggle ─────────────────────────────────── */
@@ -81,47 +57,23 @@ function _stSwitchMode(mode) {
   render();
 }
 
-/* ── LaTeX helpers ───────────────────────────────── */
+/* ── Header detection ────────────────────────────── */
 
-function _stHasLatex(text) {
-  return /\\\(|\\\[/.test(text);
-}
-
-function _stLatexHTML(text) {
-  const parts = [];
-  const re = /\\\((.+?)\\\)/gs;
-  let last = 0, m;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) parts.push({ t: 'txt', v: text.slice(last, m.index) });
-    parts.push({ t: 'math', v: m[1] });
-    last = m.index + m[0].length;
+function _stIsHdr(r, c, mode) {
+  switch (mode) {
+    case 'first-row':  return r === 0;
+    case 'first-col':  return c === 0;
+    case 'both':       return r === 0 || c === 0;
+    case 'first-cell': return r === 0 && c === 0;
+    case 'none':       return false;
+    default:           return r === 0;
   }
-  if (last < text.length) parts.push({ t: 'txt', v: text.slice(last) });
-
-  return parts.map(p => {
-    if (p.t === 'math') {
-      try {
-        // output:'html' suppresses the katex-mathml element that causes double rendering in Learnosity
-        return typeof katex !== 'undefined'
-          ? katex.renderToString(p.v, { throwOnError: false, displayMode: false, output: 'html' })
-          : `<i>${p.v}</i>`;
-      } catch (_) { return `<i>${p.v}</i>`; }
-    }
-    return p.v.split('\n').map(l => `<span>${l}</span>`).join('<br/>');
-  }).join('');
-}
-
-function _stEstLen(text) {
-  return Math.max(0, ...text.split('\n').map(line =>
-    line.replace(/\\\((.+?)\\\)/g, (_, m) =>
-      m.replace(/\\[a-zA-Z]+/g, 'xx').replace(/[{}^_]/g, '')).length));
 }
 
 /* ── Style merger: global → column override → cell override ── */
 
-function _stEffStyle(r, c, globals) {
-  // Column overrides never apply to the header row (r === -1)
-  const co = (r >= 0 ? _stColOverrides[c] : null) || {};
+function _stEffStyle(r, c, isHdr, globals) {
+  const co = (!isHdr ? _stColOverrides[c] : null) || {};
   const ce = _stCellOverrides[`${r},${c}`] || {};
   return {
     bg:     ce.bg     ?? co.bg     ?? globals.bg,
@@ -134,7 +86,7 @@ function _stEffStyle(r, c, globals) {
   };
 }
 
-/* ── Cell renderers ──────────────────────────────── */
+/* ── Cell renderer (pure SVG text) ──────────────── */
 
 function _stTextCell(text, cx, cy, cw, ch, halign, valign, pad, ff, fs, bold, italic, tc) {
   const lines  = text.split('\n');
@@ -158,109 +110,95 @@ function _stTextCell(text, cx, cy, cw, ch, halign, valign, pad, ff, fs, bold, it
   ).join('\n');
 }
 
-function _stLatexCell(text, cx, cy, cw, ch, halign, valign, pad, ff, fs, bold, italic, tc) {
-  const aiMap = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
-  const jcMap = { left: 'flex-start', center: 'center', right: 'flex-end' };
-  const style = [
-    'display:flex', 'flex-wrap:wrap', 'gap:2px',
-    `align-items:${aiMap[valign] || 'center'}`, `justify-content:${jcMap[halign] || 'center'}`,
-    'width:100%', 'height:100%', 'box-sizing:border-box',
-    `padding:${pad}px`,
-    `font-family:${ff}`, `font-size:${fs}px`,
-    `font-weight:${bold}`, `font-style:${italic}`,
-    `color:${tc}`,
-  ].join(';');
-
-  return `<foreignObject x="${fmt(cx)}" y="${fmt(cy)}" width="${fmt(cw)}" height="${fmt(ch)}"><div xmlns="http://www.w3.org/1999/xhtml" style="${style}">${_stLatexHTML(text)}</div></foreignObject>`;
-}
-
-function _stRenderCell(text, cx, cy, cw, ch, halign, valign, pad, ff, fs, bold, italic, tc) {
-  return _stHasLatex(text)
-    ? _stLatexCell(text, cx, cy, cw, ch, halign, valign, pad, ff, fs, bold, italic, tc)
-    : _stTextCell (text, cx, cy, cw, ch, halign, valign, pad, ff, fs, bold, italic, tc);
+function _stEstLen(text) {
+  return Math.max(0, ...text.split('\n').map(line => line.length));
 }
 
 /* ── Main generator ──────────────────────────────── */
 
 function generateSVGTable() {
   const mode = val('st-mode') || 'html';
+  const allRows = mode === 'html'
+    ? _stParseHTML(val('st-html-input') || '')
+    : _stParseCSV(val('st-csv-input') || '');
 
-  let headers = [], rows = [];
-  if (mode === 'html') {
-    const r = _stParseHTML(val('st-html-input') || '');
-    headers = r.headers; rows = r.rows;
-  } else {
-    const r = _stParseCSV(val('st-csv-input') || '');
-    headers = r.headers; rows = r.rows;
-  }
-
-  const nCols = headers.length || (rows[0] ? rows[0].length : 0);
+  const nCols = allRows.length ? Math.max(...allRows.map(r => r.length)) : 0;
   if (!nCols) return errorSVG('No table data — paste HTML or enter CSV data');
 
-  // ── Style ───────────────────────────────────────
+  const hdrMode = val('st-hdr-mode') || 'first-row';
+
+  // ── Title ────────────────────────────────────────
   const title      = (val('st-title') || '').trim();
-  const ff         = val('st-font-family') || 'Arial,sans-serif';
+  const titleColor = val('st-title-color') || '#111111';
+  const titleFs    = Math.max(8, num('st-title-fs')    || 16);
+  const titleAlign = val('st-title-align')  || 'center';
+  const titleBold  = chk('st-title-bold')   ? 'bold' : 'normal';
+  const ff         = val('st-font-family')  || 'Arial,sans-serif';
 
-  const hdrBg      = val('st-hdr-bg')      || '#374151';
-  const hdrTc      = val('st-hdr-tc')      || '#ffffff';
-  const hdrFs      = Math.max(8, num('st-hdr-fs')   || 14);
-  const hdrBold    = chk('st-hdr-bold')    ? 'bold'   : 'normal';
-  const hdrItalic  = chk('st-hdr-italic')  ? 'italic' : 'normal';
-  const hdrAlign   = val('st-hdr-align')   || 'center';
-  const hdrValign  = val('st-hdr-valign')  || 'middle';
+  // ── Header style ─────────────────────────────────
+  const hdrBg     = val('st-hdr-bg')      || '#374151';
+  const hdrTc     = val('st-hdr-tc')      || '#ffffff';
+  const hdrFs     = Math.max(8, num('st-hdr-fs')    || 14);
+  const hdrBold   = chk('st-hdr-bold')    ? 'bold'   : 'normal';
+  const hdrItalic = chk('st-hdr-italic')  ? 'italic' : 'normal';
+  const hdrAlign  = val('st-hdr-align')   || 'center';
+  const hdrValign = val('st-hdr-valign')  || 'middle';
 
+  // ── Body style ───────────────────────────────────
   const rowBg      = val('st-row-bg')      || '#ffffff';
   const rowTc      = val('st-row-tc')      || '#111111';
-  const rowFs      = Math.max(8, num('st-row-fs')   || 13);
+  const rowFs      = Math.max(8, num('st-row-fs')    || 13);
   const rowBold    = chk('st-row-bold')    ? 'bold'   : 'normal';
   const rowItalic  = chk('st-row-italic')  ? 'italic' : 'normal';
   const rowAlign   = val('st-row-align')   || 'center';
   const rowValign  = val('st-row-valign')  || 'middle';
-  const col0Align  = val('st-col0-align')  || 'left';
   const altRows    = chk('st-alt-rows');
   const altBg      = val('st-alt-bg')      || '#f3f4f6';
   const smartAlign = chk('st-smart-align');
 
+  // ── Layout ───────────────────────────────────────
   const transparentBg = chk('st-transparent-bg');
-  const borderColor = val('st-border-color') || '#d1d5db';
-  const borderW     = Math.max(0, num('st-border-w') || 1);
-  const pad         = Math.max(2, num('st-pad')      || 10);
-  const outerRx     = Math.max(0, num('st-rx')       || 4);
-  const col0WInput  = Math.max(0, num('st-col0-w')   || 0);
+  const pad        = Math.max(2, num('st-pad') || 10);
+  const outerRx    = Math.max(0, num('st-rx')  || 4);
+
+  // ── Border controls ──────────────────────────────
+  const outerColor = val('st-outer-color') || '#374151';
+  const outerW     = Math.max(0, num('st-outer-w')  || 1.5);
+  const outerDash  = val('st-outer-dash')  || '';
+  const hlineColor = val('st-hline-color') || '#d1d5db';
+  const hlineW     = Math.max(0, num('st-hline-w')  || 1);
+  const hlineDash  = val('st-hline-dash')  || '';
+  const vlineColor = val('st-vline-color') || '#d1d5db';
+  const vlineW     = Math.max(0, num('st-vline-w')  || 1);
+  const vlineDash  = val('st-vline-dash')  || '';
 
   // ── Smart alignment ──────────────────────────────
+  const checkRows = allRows.length > 1 ? allRows.slice(1) : allRows;
   const colIsNumeric = Array.from({ length: nCols }, (_, c) =>
-    c > 0 && rows.length > 0 &&
-    rows.every(row => {
-      const v = (row[c] || '').replace(/\\\(.*?\\\)/g, '').trim();
+    c > 0 && checkRows.length > 0 && checkRows.every(row => {
+      const v = (row[c] || '').trim();
       return v !== '' && !isNaN(parseFloat(v));
     }));
 
-  const getBaseHAlign = (c, isHdr) => {
-    if (isHdr) return hdrAlign;
+  const getHAlign = (r, c) => {
     if (smartAlign) return c === 0 ? 'left' : (colIsNumeric[c] ? 'center' : 'left');
-    return c === 0 ? col0Align : rowAlign;
+    return rowAlign;
   };
 
   // ── Row heights ──────────────────────────────────
-  const hdrLineH = hdrFs * 1.35;
-  const rowLineH = rowFs * 1.35;
+  const rowHeights = allRows.map((row, r) => {
+    const anyHdr = row.some((_, c) => _stIsHdr(r, c, hdrMode));
+    const fs = anyHdr ? hdrFs : rowFs;
+    const lineH = fs * 1.35;
+    const maxLines = Math.max(1, ...row.map(cell => (cell || '').split('\n').length));
+    return Math.ceil(lineH * maxLines + pad * 2);
+  });
 
-  const showHdr = headers.length > 0;
-  const hdrLineCount = showHdr
-    ? Math.max(1, ...headers.map(h => (h || '').split('\n').length))
-    : 1;
-  const hdrH = showHdr ? Math.ceil(hdrLineH * hdrLineCount + pad * 2) : 0;
-
-  const rowHeights = rows.map(row =>
-    Math.ceil(rowLineH * Math.max(1, ...row.map(c => (c || '').split('\n').length)) + pad * 2));
-
-  // ── Column widths (column override width wins over auto) ─
+  // ── Column widths ────────────────────────────────
   const colWidths = Array.from({ length: nCols }, (_, c) => {
-    if (c === 0 && col0WInput > 0) return col0WInput;
     const colOv = _stColOverrides[c] || {};
     if (colOv.width > 0) return colOv.width;
-    const allTexts = [headers[c] || '', ...rows.map(r => r[c] || '')];
+    const allTexts = allRows.map(row => row[c] || '');
     const maxLen = Math.max(0, ...allTexts.map(_stEstLen));
     const fs = Math.max(hdrFs, rowFs);
     return Math.max(40, Math.ceil(maxLen * fs * 0.58 + pad * 2));
@@ -268,10 +206,10 @@ function generateSVGTable() {
 
   // ── Dimensions ───────────────────────────────────
   const ML = 16, MR = 16, MB = 16;
-  const titleH = title ? (hdrFs + 4) * 1.5 : 0;
+  const titleH = title ? (titleFs + 4) * 1.6 : 0;
   const MT     = 14 + titleH;
   const tableW = colWidths.reduce((a, b) => a + b, 0);
-  const tableH = hdrH + rowHeights.reduce((a, b) => a + b, 0);
+  const tableH = rowHeights.reduce((a, b) => a + b, 0);
   const W = ML + tableW + MR;
   const H = MT + tableH + MB;
 
@@ -280,14 +218,13 @@ function generateSVGTable() {
   for (const w of colWidths) { colX.push(cx0); cx0 += w; }
 
   const rowYs = [];
-  let ry = MT + hdrH;
+  let ry = MT;
   for (const rh of rowHeights) { rowYs.push(ry); ry += rh; }
 
-  // Cache geometry for click-to-edit overlays
-  _stLastParsed = { headers, rows, colX, colWidths, MT, hdrH, rowYs, rowHeights, nCols };
+  _stLastParsed = { allRows, colX, colWidths, MT, rowYs, rowHeights, nCols };
 
   // ── Render ───────────────────────────────────────
-  let s = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`;
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`;
   if (!transparentBg) s += `\n<rect width="${W}" height="${H}" fill="white"/>`;
 
   if (outerRx > 0) {
@@ -295,47 +232,60 @@ function generateSVGTable() {
     s += `\n<g clip-path="url(#st-clip)">`;
   }
 
+  // Title
   if (title) {
-    s += `\n<text x="${fmt(ML + tableW / 2)}" y="${fmt(MT - 7)}" font-family="${ff}" font-size="${hdrFs + 3}" font-weight="bold" fill="#111" text-anchor="middle">${escXml(title)}</text>`;
+    const tx  = titleAlign === 'left' ? ML : titleAlign === 'right' ? ML + tableW : ML + tableW / 2;
+    const anc = titleAlign === 'left' ? 'start' : titleAlign === 'right' ? 'end' : 'middle';
+    s += `\n<text x="${fmt(tx)}" y="${fmt(MT - titleH / 2)}" font-family="${ff}" font-size="${titleFs}" font-weight="${titleBold}" fill="${titleColor}" text-anchor="${anc}">${escXml(title)}</text>`;
   }
 
-  // Header
-  if (showHdr) {
+  // Cells
+  let bodyRowIdx = -1;
+  for (let r = 0; r < allRows.length; r++) {
+    const row      = allRows[r];
+    const rowY     = rowYs[r];
+    const rowH     = rowHeights[r];
+    const isFullHdrRow = row.every((_, c) => _stIsHdr(r, c, hdrMode));
+    if (!isFullHdrRow) bodyRowIdx++;
+
     for (let c = 0; c < nCols; c++) {
-      const st = _stEffStyle(-1, c, { bg: hdrBg, tc: hdrTc, fs: hdrFs, bold: hdrBold, italic: hdrItalic, hAlign: getBaseHAlign(c, true), vAlign: hdrValign });
-      s += `\n<rect x="${fmt(colX[c])}" y="${fmt(MT)}" width="${fmt(colWidths[c])}" height="${fmt(hdrH)}" fill="${st.bg}"/>`;
-      s += '\n' + _stRenderCell(headers[c] || '', colX[c], MT, colWidths[c], hdrH, st.hAlign, st.vAlign, pad, ff, st.fs, st.bold, st.italic, st.tc);
-    }
-  }
+      const isHdr  = _stIsHdr(r, c, hdrMode);
+      const defBg  = isHdr ? hdrBg : (altRows && bodyRowIdx % 2 === 1 ? altBg : rowBg);
+      const globals = isHdr
+        ? { bg: hdrBg, tc: hdrTc, fs: hdrFs, bold: hdrBold, italic: hdrItalic, hAlign: hdrAlign, vAlign: hdrValign }
+        : { bg: defBg, tc: rowTc, fs: rowFs, bold: rowBold, italic: rowItalic, hAlign: getHAlign(r, c), vAlign: rowValign };
 
-  // Body rows
-  for (let r = 0; r < rows.length; r++) {
-    const defaultBg = altRows && r % 2 === 1 ? altBg : rowBg;
-    const ry2 = rowYs[r], rh = rowHeights[r];
-    for (let c = 0; c < nCols; c++) {
-      const st = _stEffStyle(r, c, { bg: defaultBg, tc: rowTc, fs: rowFs, bold: rowBold, italic: rowItalic, hAlign: getBaseHAlign(c, false), vAlign: rowValign });
-      s += `\n<rect x="${fmt(colX[c])}" y="${fmt(ry2)}" width="${fmt(colWidths[c])}" height="${fmt(rh)}" fill="${st.bg}"/>`;
-      s += '\n' + _stRenderCell(String(rows[r][c] ?? ''), colX[c], ry2, colWidths[c], rh, st.hAlign, st.vAlign, pad, ff, st.fs, st.bold, st.italic, st.tc);
-    }
-  }
+      const st = _stEffStyle(r, c, isHdr, globals);
 
-  // Borders
-  if (borderW > 0) {
-    const bw  = fmt(borderW);
-    const bwH = fmt(borderW * 1.5);
-    for (let r = 1; r < rows.length; r++)
-      s += `\n<line x1="${fmt(ML)}" y1="${fmt(rowYs[r])}" x2="${fmt(ML + tableW)}" y2="${fmt(rowYs[r])}" stroke="${borderColor}" stroke-width="${bw}"/>`;
-    if (showHdr && rows.length > 0)
-      s += `\n<line x1="${fmt(ML)}" y1="${fmt(MT + hdrH)}" x2="${fmt(ML + tableW)}" y2="${fmt(MT + hdrH)}" stroke="${borderColor}" stroke-width="${bwH}"/>`;
-    for (let c = 1; c < nCols; c++)
-      s += `\n<line x1="${fmt(colX[c])}" y1="${fmt(MT)}" x2="${fmt(colX[c])}" y2="${fmt(MT + tableH)}" stroke="${borderColor}" stroke-width="${bw}"/>`;
+      s += `\n<rect x="${fmt(colX[c])}" y="${fmt(rowY)}" width="${fmt(colWidths[c])}" height="${fmt(rowH)}" fill="${st.bg}"/>`;
+      s += '\n' + _stTextCell(row[c] || '', colX[c], rowY, colWidths[c], rowH, st.hAlign, st.vAlign, pad, ff, st.fs, st.bold, st.italic, st.tc);
+    }
   }
 
   if (outerRx > 0) s += `\n</g>`;
 
-  if (borderW > 0) {
-    const bwH = fmt(borderW * 1.5);
-    s += `\n<rect x="${fmt(ML)}" y="${fmt(MT)}" width="${fmt(tableW)}" height="${fmt(tableH)}" fill="none" stroke="${borderColor}" stroke-width="${bwH}" rx="${outerRx}" ry="${outerRx}"/>`;
+  // H-lines (between rows)
+  if (hlineW > 0) {
+    const da = hlineDash ? ` stroke-dasharray="${hlineDash}"` : '';
+    for (let r = 1; r < allRows.length; r++) {
+      const prevHdr = allRows[r - 1].some((_, c) => _stIsHdr(r - 1, c, hdrMode));
+      const w = prevHdr ? fmt(hlineW * 1.5) : fmt(hlineW);
+      s += `\n<line x1="${fmt(ML)}" y1="${fmt(rowYs[r])}" x2="${fmt(ML + tableW)}" y2="${fmt(rowYs[r])}" stroke="${hlineColor}" stroke-width="${w}"${da}/>`;
+    }
+  }
+
+  // V-lines (between columns)
+  if (vlineW > 0) {
+    const da = vlineDash ? ` stroke-dasharray="${vlineDash}"` : '';
+    for (let c = 1; c < nCols; c++) {
+      s += `\n<line x1="${fmt(colX[c])}" y1="${fmt(MT)}" x2="${fmt(colX[c])}" y2="${fmt(MT + tableH)}" stroke="${vlineColor}" stroke-width="${fmt(vlineW)}"${da}/>`;
+    }
+  }
+
+  // Outer border
+  if (outerW > 0) {
+    const da = outerDash ? ` stroke-dasharray="${outerDash}"` : '';
+    s += `\n<rect x="${fmt(ML)}" y="${fmt(MT)}" width="${fmt(tableW)}" height="${fmt(tableH)}" fill="none" stroke="${outerColor}" stroke-width="${fmt(outerW)}" rx="${outerRx}" ry="${outerRx}"${da}/>`;
   }
 
   return s + '\n</svg>';
@@ -349,25 +299,22 @@ function attachSTClickHandlers() {
 
   _stUpdateColSel();
 
-  const { headers, rows, colX, colWidths, MT, hdrH, rowYs, rowHeights, nCols } = _stLastParsed;
+  const { allRows, colX, colWidths, rowYs, rowHeights, nCols } = _stLastParsed;
   const ns = 'http://www.w3.org/2000/svg';
 
-  const addOverlay = (r, c, x, y, w, h) => {
-    const rect = document.createElementNS(ns, 'rect');
-    rect.setAttribute('x', x);  rect.setAttribute('y', y);
-    rect.setAttribute('width', w); rect.setAttribute('height', h);
-    rect.setAttribute('fill', 'transparent');
-    rect.setAttribute('pointer-events', 'all');
-    rect.style.cursor = 'pointer';
-    rect.addEventListener('click', () => _stOpenCellEditor(r, c));
-    svgEl.appendChild(rect);
-  };
-
-  if (headers.length > 0) {
-    for (let c = 0; c < nCols; c++) addOverlay(-1, c, colX[c], MT, colWidths[c], hdrH);
-  }
-  for (let r = 0; r < rows.length; r++) {
-    for (let c = 0; c < nCols; c++) addOverlay(r, c, colX[c], rowYs[r], colWidths[c], rowHeights[r]);
+  for (let r = 0; r < allRows.length; r++) {
+    for (let c = 0; c < nCols; c++) {
+      const rect = document.createElementNS(ns, 'rect');
+      rect.setAttribute('x', colX[c]);
+      rect.setAttribute('y', rowYs[r]);
+      rect.setAttribute('width', colWidths[c]);
+      rect.setAttribute('height', rowHeights[r]);
+      rect.setAttribute('fill', 'transparent');
+      rect.setAttribute('pointer-events', 'all');
+      rect.style.cursor = 'pointer';
+      rect.addEventListener('click', () => _stOpenCellEditor(r, c));
+      svgEl.appendChild(rect);
+    }
   }
 }
 
@@ -376,16 +323,18 @@ function attachSTClickHandlers() {
 function _stUpdateColSel() {
   const sel = $('st-col-sel');
   if (!sel) return;
-  const { headers, nCols } = _stLastParsed;
+  const { allRows, nCols } = _stLastParsed;
+  const firstRow = allRows[0] || [];
   const prev = sel.value;
   sel.innerHTML = '';
   for (let c = 0; c < nCols; c++) {
     const opt = document.createElement('option');
     opt.value = c;
-    opt.textContent = (headers[c] || `Column ${c + 1}`).replace(/\n/g, ' ');
+    opt.textContent = (firstRow[c] || `Column ${c + 1}`).replace(/\n/g, ' ');
     sel.appendChild(opt);
   }
-  sel.value = prev && prev < nCols ? prev : 0;
+  const prevN = parseInt(prev);
+  sel.value = (!isNaN(prevN) && prevN < nCols) ? prevN : 0;
   _stLoadColOv(parseInt(sel.value) || 0);
 }
 
@@ -399,15 +348,15 @@ function _stLoadColOv(c) {
 
   const bgEn = $('st-col-bg-en');
   const bgIn = $('st-col-bg');
-  if (bgEn) { bgEn.checked = 'bg' in ov; }
+  if (bgEn) bgEn.checked = 'bg' in ov;
   if (bgIn) { bgIn.value = ov.bg || '#ffffff'; bgIn.disabled = !bgEn?.checked; }
 
   const tcEn = $('st-col-tc-en');
   const tcIn = $('st-col-tc');
-  if (tcEn) { tcEn.checked = 'tc' in ov; }
+  if (tcEn) tcEn.checked = 'tc' in ov;
   if (tcIn) { tcIn.value = ov.tc || '#111111'; tcIn.disabled = !tcEn?.checked; }
 
-  const fsEl = $('st-col-fs');   if (fsEl) fsEl.value = ov.fs || 0;
+  const fsEl = $('st-col-fs');   if (fsEl) fsEl.value = ov.fs     || 0;
   const bEl  = $('st-col-bold'); if (bEl)  bEl.value  = ov.bold   || '';
   const iEl  = $('st-col-ital'); if (iEl)  iEl.value  = ov.italic || '';
   const hEl  = $('st-col-ha');   if (hEl)  hEl.value  = ov.hAlign || '';
@@ -421,12 +370,12 @@ function _stApplyColOverride() {
   const ov = {};
   if ($('st-col-bg-en')?.checked) ov.bg     = val('st-col-bg');
   if ($('st-col-tc-en')?.checked) ov.tc     = val('st-col-tc');
-  const fs = num('st-col-fs');   if (fs > 0)   ov.fs     = fs;
-  const b  = val('st-col-bold'); if (b)         ov.bold   = b;
-  const it = val('st-col-ital'); if (it)        ov.italic = it;
-  const ha = val('st-col-ha');   if (ha)        ov.hAlign = ha;
-  const va = val('st-col-va');   if (va)        ov.vAlign = va;
-  const w  = num('st-col-w');    if (w > 0)     ov.width  = w;
+  const fs = num('st-col-fs');   if (fs > 0)  ov.fs     = fs;
+  const b  = val('st-col-bold'); if (b)        ov.bold   = b;
+  const it = val('st-col-ital'); if (it)       ov.italic = it;
+  const ha = val('st-col-ha');   if (ha)       ov.hAlign = ha;
+  const va = val('st-col-va');   if (va)       ov.vAlign = va;
+  const w  = num('st-col-w');    if (w > 0)    ov.width  = w;
   _stColOverrides[c] = ov;
   render();
 }
@@ -445,17 +394,13 @@ let _stEditCell = null;
 
 function _stOpenCellEditor(r, c) {
   _stEditCell = { r, c };
-  const { headers, rows } = _stLastParsed;
+  const { allRows } = _stLastParsed;
   const ov = _stCellOverrides[`${r},${c}`] || {};
 
-  const colLabel = (headers[c] || `Col ${c + 1}`).replace(/\n/g, ' ');
-  const rowLabel = r === -1 ? 'Header' : (rows[r]?.[0] || `Row ${r + 1}`);
+  const colLabel = (allRows[0]?.[c] || `Col ${c + 1}`).replace(/\n/g, ' ');
+  const rowLabel = allRows[r]?.[0] || `Row ${r + 1}`;
   $('st-ce-label').textContent = `${rowLabel} / ${colLabel}`;
-
-  const srcText = r === -1
-    ? (headers[c] || '')
-    : String(rows[r]?.[c] ?? '');
-  $('st-ce-text').value = srcText;
+  $('st-ce-text').value = String(allRows[r]?.[c] ?? '');
 
   const bgEn = $('st-ce-bg-en'); const bgIn = $('st-ce-bg');
   if (bgEn) bgEn.checked = 'bg' in ov;
@@ -465,7 +410,7 @@ function _stOpenCellEditor(r, c) {
   if (tcEn) tcEn.checked = 'tc' in ov;
   if (tcIn) { tcIn.value = ov.tc || '#111111'; tcIn.disabled = !tcEn?.checked; }
 
-  const fsEl = $('st-ce-fs');   if (fsEl) fsEl.value = ov.fs || 0;
+  const fsEl = $('st-ce-fs');   if (fsEl) fsEl.value = ov.fs     || 0;
   const bEl  = $('st-ce-bold'); if (bEl)  bEl.value  = ov.bold   || '';
   const iEl  = $('st-ce-ital'); if (iEl)  iEl.value  = ov.italic || '';
   const hEl  = $('st-ce-ha');   if (hEl)  hEl.value  = ov.hAlign || '';
@@ -482,22 +427,20 @@ function _stCloseCellEditor() {
 function _stApplyCellEdit() {
   if (!_stEditCell) return;
   const { r, c } = _stEditCell;
-  const { headers, rows } = _stLastParsed;
+  const { allRows } = _stLastParsed;
 
-  // Update source textarea with new content
-  const srcText = r === -1 ? (headers[c] || '') : String(rows[r]?.[c] ?? '');
+  const srcText = String(allRows[r]?.[c] ?? '');
   const newText = $('st-ce-text').value;
   if (newText !== srcText) _stWriteBack(r, c, newText);
 
-  // Collect style overrides (only active ones are saved)
   const ov = {};
   if ($('st-ce-bg-en')?.checked) ov.bg     = val('st-ce-bg');
   if ($('st-ce-tc-en')?.checked) ov.tc     = val('st-ce-tc');
-  const fs = num('st-ce-fs');   if (fs > 0)   ov.fs     = fs;
-  const b  = val('st-ce-bold'); if (b)         ov.bold   = b;
-  const it = val('st-ce-ital'); if (it)        ov.italic = it;
-  const ha = val('st-ce-ha');   if (ha)        ov.hAlign = ha;
-  const va = val('st-ce-va');   if (va)        ov.vAlign = va;
+  const fs = num('st-ce-fs');   if (fs > 0)  ov.fs     = fs;
+  const b  = val('st-ce-bold'); if (b)        ov.bold   = b;
+  const it = val('st-ce-ital'); if (it)       ov.italic = it;
+  const ha = val('st-ce-ha');   if (ha)       ov.hAlign = ha;
+  const va = val('st-ce-va');   if (va)       ov.vAlign = va;
 
   const key = `${r},${c}`;
   if (Object.keys(ov).length) _stCellOverrides[key] = ov;
@@ -518,18 +461,13 @@ function _stClearCellEdit() {
 
 function _stWriteBack(r, c, newText) {
   const mode = val('st-mode') || 'html';
-  if (mode === 'csv') {
-    _stWriteBackCSV(r, c, newText);
-  } else {
-    _stWriteBackHTML(r, c, newText);
-  }
+  if (mode === 'csv') _stWriteBackCSV(r, c, newText);
+  else                _stWriteBackHTML(r, c, newText);
 }
 
 function _stWriteBackCSV(r, c, newText) {
-  const { headers, rows } = _stLastParsed;
-  if (r === -1) { if (headers) headers[c] = newText; }
-  else          { if (rows[r]) rows[r][c]  = newText; }
-  const allRows = [headers, ...rows];
+  const { allRows } = _stLastParsed;
+  if (allRows[r]) allRows[r][c] = newText;
   $('st-csv-input').value = allRows.map(row =>
     (row || []).map(cell => (cell || '').replace(/\n/g, '\\n')).join('\t')
   ).join('\n');
@@ -541,15 +479,10 @@ function _stWriteBackHTML(r, c, newText) {
     const doc = parser.parseFromString(`<html><body>${val('st-html-input') || ''}</body></html>`, 'text/html');
     const table = doc.querySelector('table');
     if (!table) return;
-    if (r === -1) {
-      const cells = table.querySelectorAll('thead th, thead td');
+    const trs = table.querySelectorAll('tr');
+    if (trs[r]) {
+      const cells = trs[r].querySelectorAll('th, td');
       if (cells[c]) cells[c].textContent = newText;
-    } else {
-      const trs = table.querySelectorAll('tbody tr');
-      if (trs[r]) {
-        const tds = trs[r].querySelectorAll('td');
-        if (tds[c]) tds[c].textContent = newText;
-      }
     }
     $('st-html-input').value = table.outerHTML;
   } catch (_) {}
