@@ -341,6 +341,22 @@
             </div>
           </div>
 
+          <div>
+            <div class="shape-group-label">Clocks</div>
+            <div class="shape-grid">
+              <button class="shape-card" data-shape="analogClock">
+                <svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
+                  <circle cx="22" cy="22" r="18" fill="currentColor" fill-opacity=".10" stroke="currentColor" stroke-width="1.6"/>
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" stroke-width="3.5" stroke-opacity=".25"/>
+                  <line x1="22" y1="22" x2="22" y2="8"  stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                  <line x1="22" y1="22" x2="32" y2="26" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                  <circle cx="22" cy="22" r="2" fill="currentColor"/>
+                </svg>
+                <span>Analog Clock</span>
+              </button>
+            </div>
+          </div>
+
         </div><!-- /shape-selector -->
       </div><!-- /Shape card -->
 
@@ -1840,6 +1856,9 @@
 
         <!-- Volume Measures — populated by buildVolumeMeasuresUI() -->
         <div class="param-section" id="params-volumeMeasures"></div>
+
+        <!-- Clocks — populated by buildClocksUI() -->
+        <div class="param-section" id="params-analogClock"></div>
 
       </div><!-- /Parameters -->
 
@@ -4318,6 +4337,7 @@ Books read,15,8,12,20,11,18,9</textarea>
 <script src="js/balance.js"></script>
 <script src="js/pan-balance.js"></script>
 <script src="js/volume-measures.js"></script>
+<script src="js/clocks.js"></script>
 <script src="js/events.js"></script>
 <script src="js/main.js"></script>
 

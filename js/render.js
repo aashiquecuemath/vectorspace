@@ -65,6 +65,17 @@ function render() {
     _applyPreviewZoom();
     return;
   }
+  if (currentShape === 'analogClock') {
+    svg = applyActiveRegion(svg);
+    svg = applyCanvas(svg);
+    svg = applyBackground(svg);
+    _setPreview(svg);
+    $('svgCode').value = getCleanSVG();
+    _applyPreviewZoom();
+    _applyCanvasOutline();
+    _updateDims();
+    return;
+  }
 
   svg = applyActiveRegion(svg);
   svg = applyCanvas(svg);

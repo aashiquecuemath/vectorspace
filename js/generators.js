@@ -1299,6 +1299,7 @@ function generateShape() {
     analogBalance:   generateBalance,
     panBalance:      renderPanBalance,
     volumeMeasures:  generateVolumeMeasures,
+    analogClock:     generateClocks,
   };
   return (map[currentShape] || (() => ''))();
 }

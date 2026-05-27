@@ -1974,6 +1974,36 @@ input[type=hidden].pt-hidden-val { display:none !important; }
 .sub-group--vm-liquid { border: 2px solid #1e40af; }
 .sub-group--vm-liquid > .sub-group-title { color: #1e40af; background: #dbeafe; }
 
+/* ── Clocks — outer clock section colors (one per clock slot 0–5) ── */
+.sub-group--ck-0 { border: 2px solid #0369a1; }
+.sub-group--ck-0 > .sub-group-title { color: #0369a1; background: #e0f2fe; }
+.sub-group--ck-1 { border: 2px solid #166534; }
+.sub-group--ck-1 > .sub-group-title { color: #166534; background: #dcfce7; }
+.sub-group--ck-2 { border: 2px solid #92400e; }
+.sub-group--ck-2 > .sub-group-title { color: #92400e; background: #fef3c7; }
+.sub-group--ck-3 { border: 2px solid #9f1239; }
+.sub-group--ck-3 > .sub-group-title { color: #9f1239; background: #fdd5df; }
+.sub-group--ck-4 { border: 2px solid #6b21a8; }
+.sub-group--ck-4 > .sub-group-title { color: #6b21a8; background: #ede9fe; }
+.sub-group--ck-5 { border: 2px solid #0f766e; }
+.sub-group--ck-5 > .sub-group-title { color: #0f766e; background: #ccfbf1; }
+
+/* ── Clocks — inner parameter section colors ── */
+.sub-group--ck-time   { border: 1px solid #0891b2; }
+.sub-group--ck-time   > .sub-group-title { color: #0891b2; background: #cffafe; }
+.sub-group--ck-appear { border: 1px solid #059669; }
+.sub-group--ck-appear > .sub-group-title { color: #059669; background: #d1fae5; }
+.sub-group--ck-font   { border: 1px solid #7c3aed; }
+.sub-group--ck-font   > .sub-group-title { color: #7c3aed; background: #ede9fe; }
+.sub-group--ck-hands  { border: 1px solid #d97706; }
+.sub-group--ck-hands  > .sub-group-title { color: #d97706; background: #fef3c7; }
+.sub-group--ck-disp   { border: 1px solid #db2777; }
+.sub-group--ck-disp   > .sub-group-title { color: #db2777; background: #fce7f3; }
+
+/* Inner section sizing within clock slots */
+.ck-clock-section > .sub-body > .sub-group { margin-top: 4px; }
+.ck-clock-section > .sub-body > .sub-group > .sub-group-title { font-size: 11.5px; padding: 5px 8px; }
+
 /* ── Volume Measures beaker tabs ── */
 .vm-bk-bar  { display: flex; align-items: center; gap: 5px; margin-bottom: 8px; flex-wrap: wrap; }
 .vm-bk-tabs { display: flex; flex-wrap: wrap; gap: 3px; flex: 1; min-width: 0; }

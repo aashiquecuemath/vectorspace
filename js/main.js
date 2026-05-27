@@ -6,5 +6,6 @@ buildGeometry3DUI();
 buildBalanceUI();
 buildPanBalanceUI();
 buildVolumeMeasuresUI();
+buildClocksUI();
 wireAll();
 render();
