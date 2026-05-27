@@ -58,11 +58,14 @@ function render() {
     return;
   }
   if (currentShape === 'svgTable') {
+    svg = applyCanvas(svg);
+    svg = applyBackground(svg);
     _setPreview(svg);
     $('svgCode').value = svg;
     _updateDims();
     if (typeof attachSTClickHandlers === 'function') attachSTClickHandlers();
     _applyPreviewZoom();
+    _applyCanvasOutline();
     return;
   }
   if (currentShape === 'analogClock') {

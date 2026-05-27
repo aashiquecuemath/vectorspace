@@ -227,16 +227,16 @@ function generateSVGTable() {
   let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`;
   if (!transparentBg) s += `\n<rect width="${W}" height="${H}" fill="white"/>`;
 
-  if (outerRx > 0) {
-    s += `\n<defs><clipPath id="st-clip"><rect x="${fmt(ML)}" y="${fmt(MT)}" width="${fmt(tableW)}" height="${fmt(tableH)}" rx="${outerRx}" ry="${outerRx}"/></clipPath></defs>`;
-    s += `\n<g clip-path="url(#st-clip)">`;
-  }
-
-  // Title
+  // Title must render BEFORE the clip group (it lives above y=MT)
   if (title) {
     const tx  = titleAlign === 'left' ? ML : titleAlign === 'right' ? ML + tableW : ML + tableW / 2;
     const anc = titleAlign === 'left' ? 'start' : titleAlign === 'right' ? 'end' : 'middle';
     s += `\n<text x="${fmt(tx)}" y="${fmt(MT - titleH / 2)}" font-family="${ff}" font-size="${titleFs}" font-weight="${titleBold}" fill="${titleColor}" text-anchor="${anc}">${escXml(title)}</text>`;
+  }
+
+  if (outerRx > 0) {
+    s += `\n<defs><clipPath id="st-clip"><rect x="${fmt(ML)}" y="${fmt(MT)}" width="${fmt(tableW)}" height="${fmt(tableH)}" rx="${outerRx}" ry="${outerRx}"/></clipPath></defs>`;
+    s += `\n<g clip-path="url(#st-clip)">`;
   }
 
   // Cells
@@ -325,7 +325,7 @@ function _stUpdateColSel() {
   if (!sel) return;
   const { allRows, nCols } = _stLastParsed;
   const firstRow = allRows[0] || [];
-  const prev = sel.value;
+  const prevN = parseInt(sel.value);
   sel.innerHTML = '';
   for (let c = 0; c < nCols; c++) {
     const opt = document.createElement('option');
@@ -333,9 +333,10 @@ function _stUpdateColSel() {
     opt.textContent = (firstRow[c] || `Column ${c + 1}`).replace(/\n/g, ' ');
     sel.appendChild(opt);
   }
-  const prevN = parseInt(prev);
-  sel.value = (!isNaN(prevN) && prevN < nCols) ? prevN : 0;
-  _stLoadColOv(parseInt(sel.value) || 0);
+  const newVal = (!isNaN(prevN) && prevN < nCols) ? prevN : 0;
+  sel.value = newVal;
+  // Only reload form if selected column index changed (preserves unsaved edits)
+  if (isNaN(prevN) || newVal !== prevN) _stLoadColOv(newVal);
 }
 
 function _stOnColSelChange() {
